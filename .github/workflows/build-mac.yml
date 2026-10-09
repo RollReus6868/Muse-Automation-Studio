@@ -1,0 +1,73 @@
+# ============================================================================
+#  Dong goi macOS tren may Mac cua GitHub (mien phi)
+#  Ra 2 file: MuseAutomationStudio-<ver>-mac-arm64.zip (chip Apple) va -mac-x64.zip (Intel)
+# ============================================================================
+name: Dong goi macOS
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 50
+    steps:
+      - name: Lay ma nguon
+        uses: actions/checkout@v4
+
+      - name: Cai Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Cai thu vien
+        run: |
+          if [ -f package-lock.json ]; then npm ci --no-audit --no-fund
+          else npm install --no-audit --no-fund; fi
+
+      - name: Kiem thu logic + tu cap nhat
+        run: npm test
+
+      - name: Kiem thu dau-cuoi (trang Muse gia)
+        timeout-minutes: 8
+        run: node tests/e2e.js
+
+      - name: Dong goi
+        run: npx electron-builder --mac --arm64 --x64 --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      # Ban arm64 khong co chu ky hop le thi macOS bao "app bi hong".
+      - name: Kiem chu ky
+        run: |
+          for app in dist/mac*/"Muse Automation Studio.app"; do
+            echo "== $app"
+            codesign --verify --deep --strict --verbose=2 "$app"
+          done
+
+      - name: Kiem du file .zip
+        run: |
+          VER=$(node -p "require('./package.json').version")
+          for a in arm64 x64; do
+            f="dist/MuseAutomationStudio-$VER-mac-$a.zip"
+            [ -f "$f" ] || { echo "::error::Thieu $f"; exit 1; }
+          done
+          ls -lh dist/*.zip
+
+      - name: Dua anh chup giao dien len
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: anh-chup-macos
+          path: shots/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Dua file len de tai ve
+        uses: actions/upload-artifact@v4
+        with:
+          name: MuseAutomationStudio-macos
+          path: dist/*.zip
+          if-no-files-found: error
+          retention-days: 30

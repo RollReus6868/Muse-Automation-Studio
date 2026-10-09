@@ -1,0 +1,66 @@
+# ============================================================================
+#  Dong goi Windows tren may cua GitHub (mien phi)
+#  Bam tay: tab Actions -> "Dong goi Windows" -> Run workflow (chi dong goi,
+#  khong phat hanh). phat-hanh.yml cung goi lai file nay.
+# ============================================================================
+name: Dong goi Windows
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - name: Lay ma nguon
+        uses: actions/checkout@v4
+
+      - name: Cai Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Cai thu vien
+        shell: pwsh
+        run: |
+          if (Test-Path package-lock.json) { npm ci --no-audit --no-fund } else { npm install --no-audit --no-fund }
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Kiem thu logic + tu cap nhat
+        run: npm test
+
+      # Chay APP THAT tren trang Muse gia: nhieu luong, dung giua chung, dang nhap...
+      - name: Kiem thu dau-cuoi (trang Muse gia)
+        timeout-minutes: 8
+        run: node tests/e2e.js
+
+      - name: Dong goi
+        run: npx electron-builder --win --x64 --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - name: Kiem tra da ra file .exe chua
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem dist -Filter *-setup.exe -ErrorAction SilentlyContinue
+          if (-not $exe) { throw 'Build xong ma khong thay file setup.exe nao trong dist' }
+          $exe | ForEach-Object { Write-Host ('  ' + $_.Name + '  ' + [math]::Round($_.Length/1MB,1) + ' MB') }
+
+      - name: Dua anh chup giao dien len
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: anh-chup-windows
+          path: shots/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Dua file len de tai ve
+        uses: actions/upload-artifact@v4
+        with:
+          name: MuseAutomationStudio-windows
+          path: dist/*-setup.exe
+          if-no-files-found: error
+          retention-days: 30

@@ -1,0 +1,111 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Muse giả</title>
+<style>body{font-family:sans-serif;background:#111;color:#eee} textarea{width:400px;height:60px} img,video{max-width:200px}</style>
+</head><body>
+<!--
+  TRANG MUSE GIẢ cho kiểm thử — dựng lại đúng các thuộc tính đã đo trên muse.ai (10/10/2026).
+  Từ khoá trong prompt điều khiển hành vi:
+    HOI_LAI  → Muse chỉ trả chữ, không ảnh
+    NOTFOUND → khung ảnh hiện "chat-image-not-found" 2 giây rồi mới có ảnh
+    LUOI     → khung ảnh không có <img>, phải bấm "Open generated image" mới thấy
+    CHAM     → tạo mất 6 giây (mặc định 2 giây)
+  Chưa có cookie muse_login=1 → hiện màn đăng nhập.
+  Mỗi lần gửi báo về máy chủ kiểm thử: POST /__gui {prompt, soFile, thread, t0}; mở chat: GET /__thread/<id>.
+-->
+<div id="goc"></div>
+<script>
+const goc = document.getElementById('goc');
+const ngu = (ms) => new Promise((r) => setTimeout(r, ms));
+const daDangNhap = document.cookie.includes('muse_login=1');
+// Như Muse thật: chat lưu ở MÁY CHỦ (máy chủ kiểm thử), không ở trình duyệt.
+const docThread = async (id) => { try { return await (await fetch('/__thread/' + id)).json(); } catch (_) { return null; } };
+
+function anhBlob(w, h, loai) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d'); g.fillStyle = '#c8a'; g.fillRect(0, 0, w, h); g.fillStyle = '#123'; g.fillRect(10, 10, w / 2, h / 3);
+  return new Promise((r) => c.toBlob(r, loai || 'image/webp'));
+}
+
+function veDangNhap() {
+  goc.innerHTML = '<main><h1>Muse, AI that gets it done for you</h1><p>Log in or create an account</p><input placeholder="Mobile number or email"><button>Continue</button></main>';
+}
+
+function veKhung(tinHtml) {
+  goc.innerHTML = `
+    <div role="log" aria-label="Chat messages">${tinHtml || ''}</div>
+    <form onsubmit="return false">
+      <div id="dinhKem"></div>
+      <textarea aria-label="Message" placeholder="Message"></textarea>
+      <button aria-label="Attach file" type="submit"></button><input type="file" multiple hidden>
+      <button aria-label="Send" type="submit" disabled>↑</button>
+    </form>`;
+  const ta = document.querySelector('textarea'), gui = document.querySelector('[aria-label=Send]');
+  const inp = document.querySelector('input[type=file]');
+  ta.addEventListener('input', () => { gui.disabled = !ta.value.trim(); });
+  inp.addEventListener('change', () => {
+    document.getElementById('dinhKem').innerHTML = Array.from(inp.files).map((f) => `<span>${f.name}<button aria-label="Remove attachment" type="button">x</button></span>`).join('');
+  });
+  gui.addEventListener('click', () => guiTin(ta.value, inp.files ? inp.files.length : 0));
+}
+
+async function guiTin(prompt, soFile) {
+  const id = Math.random().toString(16).slice(2, 10) + '-' + Date.now().toString(16);
+  await fetch('/__gui', { method: 'POST', body: JSON.stringify({ prompt, soFile, thread: id, t0: Date.now() }) });
+  history.pushState({}, '', '/thread/' + id);
+  veThread(id);
+}
+
+let henVe = null;
+async function veThread(id) {
+  clearTimeout(henVe);
+  const t = await docThread(id);
+  if (!t) { veKhung(''); return; }
+  const user = `<div data-message-item="true" data-message-role="user"><div aria-busy="false"><span>You:</span><p>${t.prompt.replace(/</g, '&lt;')}</p></div></div>`;
+  const tre = /CHAM/.test(t.prompt) ? 6000 : 2000;
+  const daQua = Date.now() - t.t0;
+  if (daQua < tre) {
+    veKhung(user + '<div aria-label="Assistant is typing"><div></div><div></div><div></div></div>');
+    henVe = setTimeout(() => veThread(id), tre - daQua + 50);
+    return;
+  }
+  const video = /^Tạo 1 video/.test(t.prompt);
+  if (/HOI_LAI/.test(t.prompt)) {
+    veKhung(user + '<div data-message-item="true" data-message-role="assistant"><div aria-busy="false"><div data-hatch-assistant-message-body="true">Bạn muốn ảnh theo phong cách nào?</div></div></div>');
+    return;
+  }
+  const chu = `<div data-message-item="true" data-message-role="assistant"><div aria-busy="false"><div data-hatch-assistant-message-body="true">${video ? 'Video đây bạn nhé!' : 'Xong rồi đây.'}</div></div></div>`;
+  if (video) {
+    const b = new Blob([new Uint8Array(4096).map((_, i) => i % 251)], { type: 'video/mp4' });
+    veKhung(user + chu + `<div data-message-item="true" data-message-role="assistant"><div aria-busy="false"><div data-testid="hatch-chat-attachment-presentation-video"><video src="${URL.createObjectURL(b)}"></video></div><button aria-label="Download video"></button></div></div>`);
+    return;
+  }
+  const tyLe = (t.prompt.match(/tỷ lệ (\d+):(\d+)/) || [0, 9, 16]);
+  const w = 64 * +tyLe[1], h = 64 * +tyLe[2];
+  if (/NOTFOUND/.test(t.prompt) && daQua < tre + 2000) {
+    veKhung(user + chu + `<div data-message-item="true" data-message-role="assistant"><div data-testid="hatch-chat-attachment-presentation-image"><div data-testid="chat-image-not-found"></div></div></div>`);
+    henVe = setTimeout(() => veThread(id), tre + 2050 - daQua);
+    return;
+  }
+  const url = URL.createObjectURL(await anhBlob(w, h));
+  const luoi = /LUOI/.test(t.prompt);
+  veKhung(user + chu + `<div data-message-item="true" data-message-role="assistant"><div aria-busy="false">
+    <div data-testid="hatch-chat-attachment-presentation-image">${luoi ? '' : `<img src="${url}">`}</div>
+    <button aria-label="Open generated image ${luoi ? 'ảnh lười' : 'ảnh'}" type="button" id="moXem"></button></div></div>`);
+  document.getElementById('moXem').onclick = () => {
+    const d = document.createElement('div');
+    d.setAttribute('role', 'dialog');
+    d.innerHTML = `<button aria-label="Close">x</button><img src="${url}">`;
+    d.querySelector('[aria-label=Close]').onclick = () => d.remove();
+    document.body.appendChild(d);
+  };
+}
+
+function lo() {
+  if (!daDangNhap) { veDangNhap(); return; }
+  const m = location.pathname.match(/\/thread\/([^/]+)$/);
+  if (m && m[1] !== 'new') veThread(m[1]); else veKhung('');
+}
+// Như Muse: trang chủ cũng là trang chat (Next.js nạp chậm một nhịp).
+setTimeout(lo, 300);
+</script>
+</body></html>

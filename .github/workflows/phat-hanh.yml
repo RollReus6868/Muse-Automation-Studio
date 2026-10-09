@@ -1,0 +1,87 @@
+# ============================================================================
+#  Phat hanh ban moi — app cua moi nguoi TU CAP NHAT tu day
+#  CACH DUNG (moi ban moi):
+#    1. Sua "version" trong package.json (vd 1.0.0 -> 1.0.1).
+#    2. Ghi vai dong "co gi moi" vao GHI_CHU_BAN_MOI.md (phai nhac so phien ban).
+#    3. Day ma nguon len GitHub.
+#    4. Tab "Actions" -> "Phat hanh ban moi" -> "Run workflow".
+#  REPO PHAI DE CONG KHAI (public) thi app moi doc duoc ban phat hanh.
+# ============================================================================
+name: Phat hanh ban moi
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  kiem:
+    runs-on: ubuntu-latest
+    outputs:
+      the: ${{ steps.v.outputs.the }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VER=$(node -p "require('./package.json').version")
+          THE="v$VER"
+          if [ "${{ github.ref_type }}" = "tag" ] && [ "${{ github.ref_name }}" != "$THE" ]; then
+            echo "::error::The ${{ github.ref_name }} khong trung package.json ($VER)."
+            exit 1
+          fi
+          if gh release view "$THE" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "::error::Ban $THE da phat hanh roi. Tang version trong package.json truoc."
+            exit 1
+          fi
+          grep -q "$VER" GHI_CHU_BAN_MOI.md || { echo "::error::GHI_CHU_BAN_MOI.md chua nhac ban $VER"; exit 1; }
+          echo "the=$THE" >> "$GITHUB_OUTPUT"
+
+  windows:
+    needs: kiem
+    uses: ./.github/workflows/build-windows.yml
+
+  mac:
+    needs: kiem
+    uses: ./.github/workflows/build-mac.yml
+
+  dang:
+    needs: [kiem, windows, mac]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lay file da dong goi
+        uses: actions/download-artifact@v4
+        with:
+          pattern: MuseAutomationStudio-*
+          path: ra
+          merge-multiple: true
+
+      - name: Kiem du file ma app can
+        run: |
+          VER=$(node -p "require('./package.json').version")
+          for f in "MuseAutomationStudio-$VER-setup.exe" \
+                   "MuseAutomationStudio-$VER-mac-arm64.zip" \
+                   "MuseAutomationStudio-$VER-mac-x64.zip"; do
+            [ -f "ra/$f" ] || { echo "::error::Thieu $f — app tu cap nhat can dung ten nay"; exit 1; }
+          done
+          (cd ra && sha256sum * > SHA256SUMS.txt)
+          ls -lh ra
+
+      - name: Dang ban phat hanh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          THE="${{ needs.kiem.outputs.the }}"
+          gh release create "$THE" ra/*.exe ra/*.zip ra/SHA256SUMS.txt \
+            --repo "${{ github.repository }}" \
+            --target "${{ github.sha }}" \
+            --title "Muse Automation Studio $THE" \
+            --notes-file GHI_CHU_BAN_MOI.md \
+            --latest

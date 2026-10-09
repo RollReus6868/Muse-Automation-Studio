@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' file: data: blob:; media-src 'self' file: blob:; style-src 'self' 'unsafe-inline'; font-src 'self'">
+  <title>Muse Automation Studio</title>
+  <link rel="stylesheet" href="fonts.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="nen-sang"></div>
+<div class="app">
+  <!-- ── Thanh trái ─────────────────────────────────────────────── -->
+  <aside class="rail">
+    <img class="logo" src="../../icons/icon256.png" alt="" title="Muse Automation Studio">
+    <nav id="nav">
+      <button data-trang="anh"><i data-icon="image"></i><span>Tạo ảnh</span></button>
+      <button data-trang="video"><i data-icon="video"></i><span>Tạo video</span></button>
+      <button data-trang="nhanvat"><i data-icon="user-plus"></i><span>Nhân vật</span></button>
+      <button data-trang="thuvien"><i data-icon="layout-grid"></i><span>Thư viện</span></button>
+      <button data-trang="taikhoan"><i data-icon="contact"></i><span>Tài khoản</span></button>
+      <button data-trang="huongdan"><i data-icon="book-open"></i><span>Hướng dẫn</span></button>
+      <button data-trang="caidat"><i data-icon="settings"></i><span>Cài đặt</span></button>
+    </nav>
+  </aside>
+
+  <div class="khung">
+    <!-- ── Thanh trên ─────────────────────────────────────────────── -->
+    <header class="topbar">
+      <div class="brand"><b class="chu-gradient">Muse Studio</b><span class="gach">/</span><span id="tieuDeTrang">Tạo ảnh</span></div>
+      <div class="duan" id="khuDuAn">
+        <button class="chon-duan" id="nutDuAn"><span id="tenDuAn">Mặc định - 0</span><i data-icon="chevron-down"></i></button>
+        <div class="menu" id="menuDuAn" hidden></div>
+        <button class="nut-icon" id="nutThemDuAn" title="Dự án mới"><i data-icon="plus"></i></button>
+        <button class="nut-icon" id="nutMoThuMucDuAn" title="Mở thư mục kết quả của dự án"><i data-icon="folder"></i></button>
+        <button class="nut-icon" id="nutNhapPrompt" title="Nhập prompt từ file .txt"><i data-icon="arrow-down-up"></i></button>
+        <button class="nut-icon" id="nutMenuDuAn" title="Đổi tên / xoá dự án"><i data-icon="ellipsis-vertical"></i></button>
+        <div class="menu menu-phai" id="menuDuAnThem" hidden>
+          <button data-lenh="doiTen"><i data-icon="pencil"></i>Đổi tên dự án</button>
+          <button data-lenh="xoaXong"><i data-icon="circle-check"></i>Xoá các việc đã xong khỏi danh sách</button>
+          <button data-lenh="xoaDuAn" class="do"><i data-icon="trash-2"></i>Xoá dự án</button>
+        </div>
+      </div>
+      <div class="gian"></div>
+      <button class="chip chip-moi" id="chipCapNhat" hidden><i data-icon="sparkles"></i><span></span></button>
+      <span class="chip" id="chipChay"><span class="cham"></span><span>Đang nghỉ</span></span>
+      <span class="chip" id="chipHomNay"><i data-icon="crown"></i><span>Hôm nay 0 ảnh · 0 video</span></span>
+      <button class="nut-gradient" id="nutChayTatCa"><i data-icon="play"></i><span>Chạy tất cả</span></button>
+    </header>
+
+    <!-- ── Trang Tạo ảnh / Tạo video (dùng chung) ─────────────────── -->
+    <main class="trang ba-cot" id="trang-tao">
+      <section class="panel cot-tao">
+        <div class="panel-dau">
+          <h2><i data-icon="sparkles"></i><span id="tieuDeTao">Tạo ảnh</span></h2>
+          <button class="nut-vien nho" id="nutMauPrompt"><i data-icon="book-marked"></i>Mẫu prompt</button>
+          <div class="menu menu-phai menu-mau" id="menuMau" hidden></div>
+        </div>
+        <div class="cuon">
+          <label class="nhan">Chế độ tạo</label>
+          <div class="phan-doan" id="cheDo">
+            <button data-v="tudo" class="on">Tự do</button>
+            <button data-v="nguoimau">Người mẫu</button>
+          </div>
+          <div id="khuNguoiMau" hidden>
+            <label class="nhan">Chọn nhân vật gắn vào mọi prompt</label>
+            <div class="chips-nv" id="chonNhanVat"></div>
+          </div>
+
+          <label class="nhan">Prompt</label>
+          <div class="o-prompt">
+            <textarea id="oPrompt" spellcheck="false" placeholder="Mô tả chi tiết ảnh bạn muốn tạo…&#10;Mỗi dòng là một prompt. Gõ tên nhân vật (vd: Lan) để tự gửi kèm ảnh nhân vật."></textarea>
+            <div class="dem" id="demPrompt">0 prompt · 0 ký tự</div>
+          </div>
+
+          <label class="nhan">Ảnh tham chiếu <small>(tùy chọn)</small></label>
+          <div class="tha-anh" id="thaAnh">
+            <i data-icon="image"></i>
+            <div>Kéo thả ảnh vào đây</div>
+            <small><a id="nutChonAnh">hoặc nhấn để chọn ảnh</a> · <a id="nutChonThuMuc">chọn thư mục</a></small>
+          </div>
+          <div class="ds-tham-chieu" id="dsThamChieu"></div>
+
+          <div class="dong-cong-tac">
+            <div>
+              <b>Giữ nguyên nhân vật</b> <i data-icon="info" title="Prompt nhắc tên nhân vật nào thì tự gửi kèm ảnh nhân vật đó"></i>
+              <small>Tự gửi kèm ảnh nhân vật khi prompt nhắc tên, giữ khuôn mặt và đặc điểm.</small>
+            </div>
+            <label class="cong-tac"><input type="checkbox" id="tuNhanVat" checked><span></span></label>
+          </div>
+
+          <label class="nhan">Tỷ lệ khung hình</label>
+          <div class="ty-le" id="tyLe">
+            <button data-v="9:16" class="on"><i data-icon="rectangle-vertical"></i>9:16</button>
+            <button data-v="16:9"><i data-icon="rectangle-horizontal"></i>16:9</button>
+            <button data-v="1:1"><i data-icon="square"></i>1:1</button>
+            <button data-v="4:3"><i data-icon="rectangle-horizontal"></i>4:3</button>
+            <button data-v="3:4"><i data-icon="rectangle-vertical"></i>3:4</button>
+          </div>
+
+          <details class="nang-cao" id="nangCao">
+            <summary><i data-icon="sliders-horizontal"></i>Cài đặt nâng cao<i data-icon="chevron-down" class="mui"></i></summary>
+            <div class="luoi-2">
+              <label>Số bản mỗi prompt<input type="number" id="soBan" min="1" max="10" value="1"></label>
+              <label>Tách prompt theo
+                <select id="tachPrompt"><option value="dong">Mỗi dòng</option><option value="doan">Dòng trống</option></select>
+              </label>
+            </div>
+            <label>Thêm vào cuối mỗi prompt<input type="text" id="hauTo" placeholder="vd: phong cách điện ảnh, ánh sáng mềm"></label>
+            <small class="mo">Ảnh trong "chọn thư mục" được gán lần lượt: ảnh 1 → prompt 1, ảnh 2 → prompt 2… (xếp theo tên).</small>
+          </details>
+        </div>
+        <div class="chan-nut">
+          <button class="nut-gradient to" id="nutTaoChay"><i data-icon="play"></i>Tạo &amp; chạy</button>
+          <button class="nut-gradient to mui-ten" id="nutTaoMenu"><i data-icon="chevron-down"></i></button>
+          <div class="menu menu-tren" id="menuTao" hidden>
+            <button id="nutChiThem"><i data-icon="plus"></i>Chỉ thêm vào hàng đợi (chưa chạy)</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel cot-hang">
+        <div class="panel-dau">
+          <h2><i data-icon="list"></i><span id="tieuDeHang">Hàng đợi ảnh</span></h2>
+          <div class="o-tim"><i data-icon="search"></i><input id="oTim" placeholder="Tìm prompt hoặc số thứ tự…"></div>
+        </div>
+        <div class="loc-dong">
+          <div class="tabs-loc" id="tabsLoc"></div>
+          <div class="gian"></div>
+          <button class="nut-vien nho" id="nutSapXep"><i data-icon="arrow-down-up"></i><span>Mới nhất</span></button>
+        </div>
+        <div class="thanh-chon" id="thanhChon" hidden>
+          <span id="soChon">0 đã chọn</span>
+          <button class="nut-vien nho" id="chonChayLai"><i data-icon="rotate-ccw"></i>Tạo lại</button>
+          <button class="nut-vien nho do" id="chonXoa"><i data-icon="trash-2"></i>Xoá</button>
+          <button class="nut-vien nho" id="chonBo"><i data-icon="x"></i>Bỏ chọn</button>
+        </div>
+        <div class="ds-hang cuon" id="dsHang"></div>
+      </section>
+
+      <section class="panel cot-chitiet" id="cotChiTiet">
+        <div class="panel-dau">
+          <h2><i data-icon="sparkles"></i>Chi tiết kết quả</h2>
+          <button class="nut-icon" id="nutPhongTo" title="Xem lớn"><i data-icon="maximize-2"></i></button>
+        </div>
+        <div class="cuon" id="chiTiet"></div>
+      </section>
+    </main>
+
+    <!-- ── Nhân vật ───────────────────────────────────────────────── -->
+    <main class="trang" id="trang-nhanvat" hidden>
+      <section class="panel trang-don">
+        <div class="panel-dau">
+          <h2><i data-icon="user-plus"></i>Nhân vật</h2>
+          <button class="nut-gradient nho" id="nutThemNV"><i data-icon="plus"></i>Thêm nhân vật</button>
+        </div>
+        <p class="mo">Mỗi nhân vật có tên + 1–4 ảnh. Bật "Giữ nguyên nhân vật" rồi gõ tên nhân vật trong prompt, tool tự gửi kèm ảnh để Muse giữ đúng khuôn mặt.</p>
+        <div class="luoi-nv cuon" id="dsNhanVat"></div>
+      </section>
+    </main>
+
+    <!-- ── Thư viện ───────────────────────────────────────────────── -->
+    <main class="trang" id="trang-thuvien" hidden>
+      <section class="panel trang-don">
+        <div class="panel-dau">
+          <h2><i data-icon="layout-grid"></i>Thư viện</h2>
+          <div class="tabs-loc" id="locThuVien">
+            <button data-v="tat" class="on">Tất cả</button><button data-v="anh">Ảnh</button><button data-v="video">Video</button>
+          </div>
+          <div class="gian"></div>
+          <label class="o-chon">Dự án <select id="duAnThuVien"></select></label>
+        </div>
+        <div class="luoi-tv cuon" id="dsThuVien"></div>
+      </section>
+    </main>
+
+    <!-- ── Tài khoản ──────────────────────────────────────────────── -->
+    <main class="trang" id="trang-taikhoan" hidden>
+      <section class="panel cot-tk">
+        <div class="panel-dau">
+          <h2><i data-icon="contact"></i>Tài khoản Muse</h2>
+          <button class="nut-gradient nho" id="nutThemTK"><i data-icon="plus"></i>Thêm tài khoản</button>
+        </div>
+        <p class="mo">Mỗi tài khoản đăng nhập riêng một lần, app nhớ phiên. Tài khoản đang bật sẽ cùng chạy, mỗi tài khoản <b id="soLuongTK">3</b> luồng.</p>
+        <div class="cuon" id="dsTaiKhoan"></div>
+      </section>
+      <section class="panel cot-trinh-duyet">
+        <div class="panel-dau">
+          <h2><i data-icon="monitor"></i><span id="tieuDeDangNhap">Đăng nhập</span></h2>
+          <button class="nut-gradient nho" id="nutXongDangNhap" hidden><i data-icon="check"></i>Xong, đóng lại</button>
+        </div>
+        <div class="o-trinh-duyet" id="oTrinhDuyet">
+          <div class="trong"><i data-icon="log-in"></i><div>Bấm <b>Đăng nhập</b> ở một tài khoản bên trái — trang muse.ai sẽ mở ở đây để bạn đăng nhập.</div></div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ── Hướng dẫn ──────────────────────────────────────────────── -->
+    <main class="trang" id="trang-huongdan" hidden>
+      <section class="panel trang-don cuon huong-dan">
+        <h2><i data-icon="book-open"></i>Hướng dẫn nhanh</h2>
+        <ol>
+          <li><b>Tài khoản:</b> vào mục Tài khoản → <i>Đăng nhập</i> → đăng nhập muse.ai trong khung bên phải → bấm <i>Xong</i>. Muốn chạy nhiều tài khoản thì <i>Thêm tài khoản</i> và đăng nhập từng cái.</li>
+          <li><b>Tạo ảnh / Tạo video:</b> dán prompt (mỗi dòng một prompt), chọn tỷ lệ khung, bấm <i>Tạo &amp; chạy</i>. Mỗi prompt chạy trong một chat phụ mới của Muse nên không dính ngữ cảnh cũ.</li>
+          <li><b>Ảnh tham chiếu:</b> kéo thả ảnh để gửi kèm mọi prompt. <i>Chọn thư mục</i> để gán ảnh 1 → prompt 1, ảnh 2 → prompt 2 (dùng làm khung đầu khi tạo video từ ảnh).</li>
+          <li><b>Nhân vật:</b> lưu ảnh nhân vật kèm tên. Bật <i>Giữ nguyên nhân vật</i>, prompt nhắc tên nào thì tự gửi ảnh nhân vật đó. Chế độ <i>Người mẫu</i>: chọn nhân vật gắn vào mọi prompt.</li>
+          <li><b>Ảnh → video:</b> ở một ảnh đã xong, bấm <i>⋮ → Tạo video từ ảnh này</i>.</li>
+          <li><b>Kết quả</b> lưu ở thư mục trong Cài đặt, theo dự án: <code>Mac_dinh/Mac_dinh_001.png</code>.</li>
+          <li><b>Dừng giữa chừng</b> không mất lượt: chạy lại, tool mở lại đúng chat cũ để lấy kết quả chứ không gửi lại prompt.</li>
+          <li><b>Muse trả lời chữ thay vì ảnh</b> (hỏi lại, từ chối): dòng đó báo lỗi kèm câu Muse nói. Sửa prompt rồi bấm <i>Tạo lại</i>.</li>
+          <li><b>Lỗi lạ:</b> Cài đặt → bật <i>Hiện các luồng chạy ngầm</i> để nhìn thấy trang Muse của từng luồng; nhật ký đầy đủ ở thư mục dữ liệu (<code>nhat-ky.txt</code>).</li>
+        </ol>
+      </section>
+    </main>
+
+    <!-- ── Cài đặt ────────────────────────────────────────────────── -->
+    <main class="trang" id="trang-caidat" hidden>
+      <section class="panel trang-don cuon">
+        <div class="panel-dau"><h2><i data-icon="settings"></i>Cài đặt</h2><button class="nut-gradient nho" id="cdLuu"><i data-icon="check"></i>Lưu cài đặt</button></div>
+        <div class="the-cai">
+          <h3><i data-icon="folder"></i>Thư mục lưu kết quả</h3>
+          <div class="dong-o"><input id="cdThuMucRa" readonly><button class="nut-vien" id="cdChonThuMuc">Đổi…</button><button class="nut-vien" id="cdMoThuMuc">Mở</button></div>
+        </div>
+        <div class="the-cai">
+          <h3><i data-icon="sliders-horizontal"></i>Chạy</h3>
+          <div class="luoi-3">
+            <label>Số luồng mỗi tài khoản<input type="number" id="cdLuong" min="1" max="12"></label>
+            <label>Nghỉ giữa 2 lần gửi (giây, mỗi tài khoản)<input type="number" id="cdNghi" min="0" max="120"></label>
+            <label>Tự thử lại khi lỗi (lần)<input type="number" id="cdThuLai" min="0" max="5"></label>
+            <label>Chờ tối đa 1 ảnh (giây)<input type="number" id="cdChoAnh" min="60" max="1800"></label>
+            <label>Chờ tối đa 1 video (giây)<input type="number" id="cdChoVideo" min="120" max="3600"></label>
+            <label>Muse trả chữ bao lâu thì coi là lỗi (giây)<input type="number" id="cdChoChu" min="15" max="600"></label>
+          </div>
+          <div class="dong-cong-tac"><div><b>Lưu ảnh dạng PNG</b><small>Muse trả webp; bật để đổi sang png (nặng hơn, dễ dùng hơn).</small></div><label class="cong-tac"><input type="checkbox" id="cdPng"><span></span></label></div>
+          <div class="dong-cong-tac"><div><b>Hiện các luồng chạy ngầm</b><small>Để soi lỗi: trang Muse của các luồng sẽ hiện đè lên app.</small></div><label class="cong-tac"><input type="checkbox" id="cdXemLuong"><span></span></label></div>
+        </div>
+        <div class="the-cai">
+          <h3><i data-icon="file-text"></i>Mẫu câu lệnh gửi Muse</h3>
+          <small class="mo">{prompt} = prompt của bạn · {tyLe} = tỷ lệ khung · {thamChieu} = dòng giải thích ảnh đính kèm (tự sinh).</small>
+          <label>Ảnh<textarea id="cdMauAnh" rows="3"></textarea></label>
+          <label>Video<textarea id="cdMauVideo" rows="3"></textarea></label>
+          <button class="nut-vien nho" id="cdMauGoc"><i data-icon="rotate-ccw"></i>Trả về mẫu gốc</button>
+        </div>
+        <div class="the-cai">
+          <h3><i data-icon="refresh-cw"></i>Cập nhật</h3>
+          <div id="cdCapNhat" class="mo"></div>
+          <div class="dong-o"><button class="nut-vien" id="cdKiemCapNhat">Kiểm tra bản mới</button><button class="nut-vien" id="cdMoDuLieu">Mở thư mục dữ liệu</button></div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ── Nhật ký ─────────────────────────────────────────────────── -->
+    <footer class="logbar">
+      <button class="nhat-ky-mo" id="nutNhatKy"><i data-icon="scroll-text"></i>Nhật ký</button>
+      <span class="dong-cuoi" id="dongCuoi">[HỆ THỐNG] Sẵn sàng.</span>
+      <button class="lien-ket" id="nutSaoChepLog">Sao chép</button>
+      <button class="lien-ket" id="nutXoaLog">Xoá</button>
+    </footer>
+    <div class="ngan-log" id="nganLog" hidden><div class="cuon" id="dsLog"></div></div>
+  </div>
+</div>
+
+<!-- Hộp thoại dùng chung (thay window.prompt — Electron không có) -->
+<div class="phu" id="phu" hidden>
+  <div class="hop">
+    <h3 id="hopTieuDe"></h3>
+    <div id="hopNoiDung"></div>
+    <div class="hop-nut"><button class="nut-vien" id="hopHuy">Huỷ</button><button class="nut-gradient" id="hopOk">OK</button></div>
+  </div>
+</div>
+<!-- Xem lớn -->
+<div class="phu xem-lon" id="xemLon" hidden><button class="nut-icon dong" id="dongXemLon"><i data-icon="x"></i></button><div id="xemLonNoiDung"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script src="icons.js"></script>
+<script src="../main/hang-doi.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

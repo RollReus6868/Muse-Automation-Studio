@@ -1,0 +1,67 @@
+# Muse Automation Studio
+
+App desktop (Windows / macOS) tự động tạo **ảnh và video hàng loạt trên muse.ai**: dán nhiều prompt, chạy nhiều luồng song song trên nhiều tài khoản, tự tải kết quả về thư mục. Cách làm việc giống Flow Automation Studio, giao diện theo kiểu Meosu.
+
+## Dùng nhanh
+
+1. **Chạy app**
+   - Bản cài: tải `MuseAutomationStudio-<phiên bản>-setup.exe` ở trang *Releases* của repo. Windows báo SmartScreen thì bấm *More info → Run anyway* (app chưa ký số).
+   - Từ mã nguồn: bấm đúp `CHAY_TU_NGUON.bat`. Lần đầu nó cài Node.js và thư viện, mất 3–10 phút.
+2. **Tài khoản** → *Đăng nhập* → đăng nhập muse.ai trong khung bên phải → *Xong, đóng lại*. Muốn chạy nhiều tài khoản thì *Thêm tài khoản* rồi đăng nhập từng tài khoản.
+3. **Tạo ảnh / Tạo video** → dán prompt (mỗi dòng một prompt) → chọn tỷ lệ → **Tạo & chạy**.
+
+Kết quả lưu ở `Tài liệu/Muse Automation Studio/<Dự_án>/<Dự_án>_001.png` (đổi được trong Cài đặt).
+
+## Tính năng
+
+| | |
+|---|---|
+| Nhiều luồng | Mỗi tài khoản N luồng (mặc định 3, tối đa 12), các tài khoản đang bật chạy cùng lúc |
+| Nhiều tài khoản | Mỗi tài khoản một phiên đăng nhập riêng, không đá nhau ra |
+| Chat sạch | Mỗi prompt chạy trong một *chat phụ mới* của Muse, không dính ngữ cảnh hay ảnh của prompt trước |
+| Ảnh tham chiếu | Kéo thả ảnh để gửi kèm mọi prompt; *chọn thư mục* để gán ảnh 1 → prompt 1, ảnh 2 → prompt 2… |
+| Nhân vật | Lưu ảnh nhân vật kèm tên; prompt nhắc tên là tự gửi kèm ảnh (*Giữ nguyên nhân vật*), hoặc chế độ *Người mẫu* gắn vào mọi prompt |
+| Ảnh → video | *⋮ → Tạo video từ ảnh này*: ảnh đã xong làm khung đầu cho video |
+| Chỉnh sửa ảnh | *Chỉnh sửa* ở ảnh đã xong: gửi ảnh + yêu cầu sửa thành việc mới |
+| Dừng không mất lượt | Dừng giữa chừng hay tắt app, lần chạy sau mở lại đúng chat cũ để lấy kết quả, **không gửi lại prompt** |
+| Muse hỏi lại | Muse trả lời chữ thay vì ảnh thì dòng đó báo *Lỗi* kèm câu Muse nói; sửa prompt rồi *Tạo lại* |
+| Dự án | Mỗi dự án một hàng đợi + một thư mục kết quả |
+| Mẫu prompt | Lưu / chèn nhanh các prompt hay dùng |
+| Tự cập nhật | App tự hỏi GitHub Releases mỗi 4 giờ, tải và cài bản mới |
+
+## Khi có sự cố
+
+- **Nhật ký**: bấm *Nhật ký* ở góc dưới để xem; bản đầy đủ nằm ở thư mục dữ liệu (*Cài đặt → Mở thư mục dữ liệu*, file `nhat-ky.txt`).
+- **Muốn nhìn tận mắt luồng đang làm gì**: *Cài đặt → Hiện các luồng chạy ngầm*.
+- **Muse đổi giao diện** làm tool không tìm thấy ô nhập / ảnh: mọi chỗ dò trang nằm trong một file `src/inject/muse-trang.js`.
+
+## Cho người phát triển
+
+```
+main.js                   cửa sổ, luồng chạy ngầm, đăng nhập, file, cập nhật, lệnh IPC (LENH)
+src/inject/muse-trang.js  trình trợ giúp tiêm vào muse.ai — MỌI selector của Muse ở đây
+src/main/hang-doi.js      logic thuần (dùng chung với giao diện): tách prompt, câu lệnh, tên file…
+src/main/dieu-phoi.js     dự án, hàng đợi, chia việc cho luồng, thử lại, lưu file
+src/main/luong.js         một luồng: mở chat mới → đính kèm → gửi → chờ → lấy file
+src/main/tai-khoan.js     tài khoản = session partition riêng
+src/main/cap-nhat.js      tự cập nhật từ GitHub Releases (dùng lại từ Flow Automation Studio)
+src/ui/                   giao diện JS thuần (không cần build)
+tests/                    run.js (logic + kiểm tĩnh), cap-nhat-test.js, e2e.js (app thật trên trang Muse giả)
+```
+
+Kiểm thử:
+
+```bash
+npm test                                         # logic + tự cập nhật
+node tests/e2e.js                                # app thật chạy trên trang Muse giả (tests/fixture-muse.html)
+MUSE_TEST=tests/smoke-chup.js npx electron .     # chụp mọi trang vào shots/
+```
+
+Biến môi trường cho kiểm thử: `MUSE_URL` (địa chỉ Muse giả), `MUSE_DATA_DIR`, `MUSE_TEST`, `MUSE_NO_UPDATE_CHECK`, `MUSE_SHOW_LANES`, `MUSE_UPDATE_API`.
+
+Phát hành: tăng `version` trong `package.json`, ghi `GHI_CHU_BAN_MOI.md` (nhắc số phiên bản), push, rồi *Actions → Phat hanh ban moi → Run workflow*. Repo phải để **public** thì app mới tự cập nhật được.
+
+## Lịch sử
+
+### 1.0.0 (10/10/2026)
+- Bản đầu tiên. Selector đo trên muse.ai thật ngày 10/10/2026: gửi prompt, đính kèm ảnh, 6 việc chạy song song, ảnh → video, lấy file gốc (ảnh webp → png, video mp4) đều đã thử tay trên trang thật. Đường chạy đầy đủ của app (nhiều luồng, dừng/chạy tiếp, nhân vật, Muse hỏi lại, ảnh nạp lười) được kiểm trên trang Muse giả `tests/fixture-muse.html`.
