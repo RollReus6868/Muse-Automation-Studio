@@ -32,7 +32,7 @@ module.exports = function e2e({ win, app, LENH, dieuPhoi }) {
       await session.fromPartition('persist:muse-tk-1').cookies.set({ url: process.env.MUSE_URL, name: 'muse_login', value: '1' });
       const tk2 = await LENH.themTaiKhoan({ ten: 'TK hai' });
       const ra = path.join(tam, 'ra');
-      LENH.datCaiDat({ luongMoiTK: 3, nghiGiuaLanGui: 0, choChuGiay: 15, tuThuLai: 0, thuMucRa: ra });
+      LENH.datCaiDat({ luongMoiTK: 3, nghiGiuaLanGui: 0, choChuGiay: 15, tuThuLai: 0, thuMucAnh: ra, thuMucVideo: ra });
       const anhNV = path.join(tam, 'lan.png'), anhRef = path.join(tam, 'ref.png');
       fs.writeFileSync(anhNV, PNG1); fs.writeFileSync(anhRef, PNG1);
       LENH.luuNhanVat({ ten: 'Lan', moTa: 'tóc ngắn', anh: [anhNV] });
@@ -147,6 +147,39 @@ module.exports = function e2e({ win, app, LENH, dieuPhoi }) {
       await js(`document.querySelector('#nutXongDangNhap').click()`);
       await cho(() => !LENH.trangThai().dangNhap, 8000, 'đóng khung đăng nhập');
       kiem(!LENH.trangThai().dangNhap, 'bấm "Xong, đóng lại" → đóng khung đăng nhập');
+
+      // 4) 1.1.0: chạy prompt 2–3, ảnh xong tự tạo video chung prompt, tên file + thư mục video riêng.
+      ghi('-- 4. Khoảng prompt + ảnh→video tự động + tên file');
+      const rv = path.join(tam, 'video-rieng');
+      LENH.datCaiDat({ thuMucVideo: rv, tenAnh: '{duAn}/anh_{stt}', tenVideo: 'clip_{stt}' });
+      const soGuiTruoc = (await daGui()).length;
+      const truoc4 = viec().length;
+      await js(`window.__diToi('anh')`);
+      await ngu(300);
+      await js(`(() => {
+        const o = document.querySelector('#oPrompt'); o.value = 'cảnh một\\ncảnh hai\\ncảnh ba\\ncảnh bốn'; o.dispatchEvent(new Event('input'));
+        document.querySelector('#nangCao').open = true;
+        const t = document.querySelector('#tuSo'); t.value = '2'; t.dispatchEvent(new Event('input'));
+        const d = document.querySelector('#denSo'); d.value = '3'; d.dispatchEvent(new Event('input'));
+        const c = document.querySelector('#batChuoi'); c.checked = true; c.dispatchEvent(new Event('change'));
+        const v = document.querySelector('#promptVideoChung'); v.value = 'máy quay đẩy chậm'; v.dispatchEvent(new Event('input'));
+      })()`);
+      await ngu(300);
+      const ghiKhoang = await js(`document.querySelector('#ghiKhoang').textContent`);
+      kiem(/prompt 2–3 \(2\/4\)/.test(ghiKhoang), `giao diện báo khoảng sẽ chạy ("${ghiKhoang}")`);
+      await chup('e2e-chuoi-video.png');
+      await js(`document.querySelector('#nutTaoChay').click()`);
+      await cho(() => viec().length >= truoc4 + 4 && !dieuPhoi.dangChay && !dieuPhoi.coViecDangChay(), 90000, 'chạy xong ảnh + video nối tiếp');
+      const m4 = viec().slice(truoc4);
+      const anh4 = m4.filter((j) => j.loai === 'anh'), vid4 = m4.filter((j) => j.loai === 'video');
+      for (const j of m4) ghi(`   #${j.so} ${j.loai} stt=${j.stt} ${j.trangThai} ${j.files.join(',')}`);
+      kiem(anh4.map((j) => j.prompt).join('|') === 'cảnh hai|cảnh ba', 'chỉ chạy prompt 2–3');
+      kiem(vid4.length === 2 && vid4.every((v) => v.trangThai === 'xong' && v.prompt === 'máy quay đẩy chậm'), 'mỗi ảnh xong sinh đúng 1 video, chung prompt');
+      kiem(anh4.every((j) => /Mac_dinh[\\/]anh_00[23]\.png$/.test(j.files[0]) && j.files[0].startsWith(ra)), 'tên ảnh theo mẫu {duAn}/anh_{stt}');
+      kiem(vid4.map((v) => path.relative(rv, v.files[0])).sort().join(',') === 'clip_002.mp4,clip_003.mp4', 'video vào thư mục riêng, tên clip_{stt} khớp số ảnh');
+      const gui4 = (await daGui()).slice(soGuiTruoc);
+      kiem(gui4.filter((g) => /máy quay đẩy chậm/.test(g.prompt)).every((g) => g.soFile === 1 && /khung hình đầu/.test(g.prompt)), 'video gửi kèm đúng 1 ảnh làm khung đầu');
+      kiem(gui4.filter((g) => /cảnh (hai|ba)/.test(g.prompt)).every((g) => g.soFile === 0), 'ảnh gắn ở trang video KHÔNG dính sang prompt ảnh');
     } catch (err) {
       ghi('LỖI KỊCH BẢN: ' + err.stack);
       loi.push('ngoại lệ');

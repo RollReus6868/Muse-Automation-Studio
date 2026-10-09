@@ -262,10 +262,10 @@ const LENH = {
     if (r.canceled || !r.filePaths[0]) return null;
     return { thuMuc: r.filePaths[0], anh: anhTrongThuMuc(r.filePaths[0]) };
   },
-  chonThuMucRa: async () => {
+  chonThuMucRa: async ({ loai }) => {
     const r = await dialog.showOpenDialog(win, { properties: ['openDirectory', 'createDirectory'] });
     if (r.canceled || !r.filePaths[0]) return null;
-    dieuPhoi.datCaiDat({ thuMucRa: r.filePaths[0] });
+    dieuPhoi.datCaiDat({ [loai === 'video' ? 'thuMucVideo' : 'thuMucAnh']: r.filePaths[0] });
     return r.filePaths[0];
   },
   nhapPrompt: async () => {
@@ -323,7 +323,9 @@ app.whenReady().then(() => {
   taiKhoan = new QuanLyTaiKhoan(store, log);
   dieuPhoi = new DieuPhoi({
     store, taiKhoan, taoLuong, huyLuong, docFile, ghiFile, log, bao: baoTrangThai,
-    thuMucRaMacDinh: path.join(app.getPath('documents'), 'Muse Automation Studio')
+    thuMucRaMacDinh: path.join(app.getPath('documents'), 'Muse Automation Studio'),
+    thuMucTam: path.join(app.getPath('userData'), 'ket-qua-tam'),
+    tonTai: (p) => fs.existsSync(p)
   });
 
   capNhat = new BoCapNhat({

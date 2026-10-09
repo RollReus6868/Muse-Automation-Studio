@@ -11,7 +11,12 @@ const path = require('path');
 const hd = require('./hang-doi');
 
 const CAI_DAT_MAC_DINH = {
-  thuMucRa: '',
+  thuMucAnh: '',          // trống = Tài liệu/Muse Automation Studio
+  thuMucVideo: '',
+  taiAnh: true,           // tắt: file chỉ giữ trong bộ nhớ tạm của app (vẫn xem được, vẫn làm video được)
+  taiVideo: true,
+  tenAnh: hd.MAU_TEN_MAC_DINH,
+  tenVideo: hd.MAU_TEN_MAC_DINH,
   luongMoiTK: 3,          // số luồng chạy song song mỗi tài khoản
   nghiGiuaLanGui: 3,      // giây nghỉ giữa 2 lần gửi prompt của CÙNG tài khoản
   choAnhGiay: 240,        // chờ tối đa một ảnh
@@ -29,7 +34,8 @@ class DieuPhoi {
    * @param o.taoLuong(taiKhoan, stt) → Luong      o.huyLuong(luong)
    * @param o.docFile(duongDan) → {ten, mime, b64}
    * @param o.ghiFile(duongDanTuyetDoi, Buffer)
-   * @param o.thuMucRaMacDinh   o.log(muc, chu)   o.bao()  (trạng thái đổi)
+   * @param o.thuMucRaMacDinh   o.thuMucTam (file khi tắt tải về)   o.tonTai(p)
+   * @param o.log(muc, chu)   o.bao()  (trạng thái đổi)
    */
   constructor(o) {
     this.o = o;
@@ -41,6 +47,12 @@ class DieuPhoi {
     this.mauPrompt = Array.isArray(s.mauPrompt) ? s.mauPrompt : [];
     this.caiDat = { ...CAI_DAT_MAC_DINH, ...(s.caiDat || {}) };
     this.caiDat.mau = { ...hd.MAU_MAC_DINH, ...(this.caiDat.mau || {}) };
+    // 1.0.0 có một thư mục chung "thuMucRa" → dùng làm thư mục cho cả ảnh lẫn video.
+    if (this.caiDat.thuMucRa) {
+      this.caiDat.thuMucAnh = this.caiDat.thuMucAnh || this.caiDat.thuMucRa;
+      this.caiDat.thuMucVideo = this.caiDat.thuMucVideo || this.caiDat.thuMucRa;
+      delete this.caiDat.thuMucRa;
+    }
     // Việc đang chạy lúc app tắt → về hàng chờ, GIỮ thread để lấy lại kết quả.
     for (const j of this.viec) if (j.trangThai === 'chay') { j.trangThai = 'cho'; j.buoc = ''; }
     this.luong = [];          // [{luong, taiKhoanId}]
@@ -52,7 +64,9 @@ class DieuPhoi {
   }
 
   log(m, c) { this.o.log(m, c); }
-  thuMucRa() { return this.caiDat.thuMucRa || this.o.thuMucRaMacDinh; }
+  thuMucRa(loai) {
+    return (loai === 'video' ? this.caiDat.thuMucVideo : this.caiDat.thuMucAnh) || this.o.thuMucRaMacDinh;
+  }
 
   luu() {
     this.o.store.set({ duAn: this.duAn, viec: this.viec, nhanVat: this.nhanVat,
@@ -63,7 +77,8 @@ class DieuPhoi {
   trangThai() {
     return {
       duAn: this.duAn, viec: this.viec, nhanVat: this.nhanVat, caiDat: this.caiDat,
-      mauPrompt: this.mauPrompt, dangChay: this.dangChay, thuMucRa: this.thuMucRa(),
+      mauPrompt: this.mauPrompt, dangChay: this.dangChay,
+      thuMuc: { anh: this.thuMucRa('anh'), video: this.thuMucRa('video') },
       luong: this.luong.map((x) => ({ id: x.luong.id, taiKhoanId: x.taiKhoanId,
         viecId: x.luong.viec ? x.luong.viec.id : null })),
       duKien: { anh: hd.thoiGianDuKien(this.viec, 'anh'), video: hd.thoiGianDuKien(this.viec, 'video') }
@@ -96,35 +111,59 @@ class DieuPhoi {
   // ── Thêm việc ────────────────────────────────────────────────────────────
   /**
    * @param p { duAn, loai, prompts:[...], tyLe, thamChieu:[...] (dùng cho mọi prompt),
-   *            thamChieuTheoDong:[[...],...] (ảnh thứ i cho prompt thứ i),
-   *            nhanVatIds:[...] (chế độ Người mẫu), tuNhanVat:bool, soBan, hauTo, chay:bool }
+   *            thamChieuTheoDong:[[...],...] (ảnh thứ i cho prompt thứ i — theo số thứ tự GỐC),
+   *            tuSo, denSo (chỉ chạy prompt từ số … đến số …, đếm từ 1),
+   *            nhanVatIds:[...] (chế độ Người mẫu), tuNhanVat:bool, soBan, hauTo,
+   *            chuoiVideo:{prompt, tyLe} (ảnh xong → tự tạo video từ ảnh đó), chay:bool }
    */
   them(p) {
     const d = this.duAn.find((x) => x.id === p.duAn) || this.duAn[0];
-    const prompts = (p.prompts || []).map((x) => String(x).trim()).filter(Boolean);
-    if (!prompts.length) return { ok: false, loi: 'Chưa có prompt nào' };
+    const tatCa = (p.prompts || []).map((x) => String(x).trim()).filter(Boolean);
+    if (!tatCa.length) return { ok: false, loi: 'Chưa có prompt nào' };
+    const chon = hd.chonKhoang(tatCa, p.tuSo, p.denSo);
+    if (!chon.length) return { ok: false, loi: `Khoảng prompt không hợp lệ (chỉ có ${tatCa.length} prompt)` };
     const soBan = Math.max(1, Math.min(10, parseInt(p.soBan, 10) || 1));
+    const loai = p.loai === 'video' ? 'video' : 'anh';
+    const cv = p.chuoiVideo && String(p.chuoiVideo.prompt || '').trim() && loai === 'anh'
+      ? { prompt: String(p.chuoiVideo.prompt).trim(), tyLe: hd.TY_LE.includes(p.chuoiVideo.tyLe) ? p.chuoiVideo.tyLe : '' } : null;
     const moi = [];
-    prompts.forEach((pr, i) => {
+    for (const { prompt: pr, stt } of chon) {
       const text = p.hauTo ? `${pr} ${String(p.hauTo).trim()}` : pr;
       let nv = (p.nhanVatIds || []).filter((id) => this.nhanVat.some((n) => n.id === id));
       if (!nv.length && p.tuNhanVat) nv = hd.timNhanVat(pr, this.nhanVat).map((n) => n.id);
-      const thamChieu = [...(p.thamChieu || []), ...((p.thamChieuTheoDong && p.thamChieuTheoDong[i]) || [])];
+      const thamChieu = [...(p.thamChieu || []), ...((p.thamChieuTheoDong && p.thamChieuTheoDong[stt - 1]) || [])];
       for (let b = 0; b < soBan; b++) {
-        d.so += 1;
-        moi.push({
-          id: this.idMoi++, duAn: d.id, so: d.so, loai: p.loai === 'video' ? 'video' : 'anh',
-          prompt: text, tyLe: hd.TY_LE.includes(p.tyLe) ? p.tyLe : '9:16', thamChieu, nhanVat: nv,
-          trangThai: 'cho', buoc: '', thread: '', taiKhoan: '', files: [], loi: '', thu: 0,
-          taoLuc: Date.now(), batDauLuc: 0, xongLuc: 0
-        });
+        moi.push(this._viecMoi(d, { loai, prompt: text, stt, tyLe: p.tyLe, thamChieu, nhanVat: nv, chuoi: cv }));
       }
-    });
+    }
     this.viec.push(...moi);
     this.luu();
-    this.log('info', `➕ Thêm ${moi.length} việc ${p.loai === 'video' ? 'video' : 'ảnh'} vào "${d.ten}"`);
+    const khoang = chon.length < tatCa.length ? ` (prompt ${chon[0].stt}–${chon[chon.length - 1].stt})` : '';
+    this.log('info', `➕ Thêm ${moi.length} việc ${loai === 'video' ? 'video' : 'ảnh'}${khoang} vào "${d.ten}"` +
+      (cv ? ' — ảnh xong sẽ tự tạo video' : ''));
     if (p.chay) this.chayTatCa();
     return { ok: true, so: moi.length };
+  }
+
+  _viecMoi(d, v) {
+    d.so += 1;
+    return {
+      id: this.idMoi++, duAn: d.id, so: d.so, stt: v.stt || d.so, loai: v.loai,
+      prompt: v.prompt, tyLe: hd.TY_LE.includes(v.tyLe) ? v.tyLe : '9:16', thamChieu: v.thamChieu || [],
+      nhanVat: v.nhanVat || [], chuoi: v.chuoi || null, tuAnh: v.tuAnh || 0,
+      trangThai: 'cho', buoc: '', thread: '', taiKhoan: '', files: [], tam: false, loi: '', thu: 0,
+      taoLuc: Date.now(), batDauLuc: 0, xongLuc: 0
+    };
+  }
+
+  /** Ảnh vừa xong có hẹn "tự tạo video" → thêm việc video dùng ảnh đó làm khung đầu (chỉ một lần). */
+  _noiVideo(j, d) {
+    if (j.loai !== 'anh' || !j.chuoi || j.daNoiVideo || !j.files[0]) return;
+    j.daNoiVideo = true;
+    const v = this._viecMoi(d, { loai: 'video', prompt: j.chuoi.prompt, stt: j.stt, tyLe: j.chuoi.tyLe || j.tyLe,
+      thamChieu: [j.files[0]], tuAnh: j.id });
+    this.viec.push(v);
+    this.log('info', `🎬 Ảnh #${j.so} xong → thêm video #${v.so} từ ảnh đó`);
   }
 
   /** Tạo lại: về hàng chờ, xoá chat cũ (gửi lại prompt mới tinh). */
@@ -166,7 +205,9 @@ class DieuPhoi {
   datCaiDat(c) {
     const so = (v, min, max, md) => Math.max(min, Math.min(max, parseInt(v, 10) || md));
     const m = { ...this.caiDat, ...c };
-    m.luongMoiTK = so(m.luongMoiTK, 1, 12, 3);
+    m.luongMoiTK = so(m.luongMoiTK, 1, 20, 3);
+    for (const k of ['tenAnh', 'tenVideo']) m[k] = String(m[k] || '').trim() || hd.MAU_TEN_MAC_DINH;
+    m.taiAnh = m.taiAnh !== false; m.taiVideo = m.taiVideo !== false;
     m.nghiGiuaLanGui = so(m.nghiGiuaLanGui, 0, 120, 3);
     m.choAnhGiay = so(m.choAnhGiay, 60, 1800, 240);
     m.choVideoGiay = so(m.choVideoGiay, 120, 3600, 600);
@@ -296,14 +337,25 @@ class DieuPhoi {
     const d = this.duAn.find((x) => x.id === j.duAn) || { ten: 'Du_an' };
     if (r.ok) {
       try {
+        const video = j.loai === 'video';
+        const tai = video ? this.caiDat.taiVideo : this.caiDat.taiAnh;
+        const goc = tai ? this.thuMucRa(j.loai) : this.o.thuMucTam;
+        const mau = video ? this.caiDat.tenVideo : this.caiDat.tenAnh;
+        const cu = j.files || [];
         j.files = r.files.map((f, i) => {
-          const dich = path.join(this.thuMucRa(), hd.tenFile(d, j, f.mime, i));
+          let dich = path.join(goc, hd.tenFile(d, j, f.mime, i, mau));
+          // Đã có file trùng tên mà KHÔNG phải file cũ của chính việc này (Tạo lại) → thêm (2), (3)…,
+          // không bao giờ ghi đè kết quả khác (kể cả của việc đã dọn khỏi danh sách).
+          for (let n = 2; this.o.tonTai(dich) && !cu.includes(dich); n++) {
+            dich = path.join(goc, hd.tenFile(d, j, f.mime, i, mau)).replace(/(\.[^.\\/]+)$/, ` (${n})$1`);
+          }
           this.o.ghiFile(dich, Buffer.from(f.b64, 'base64'));
           return dich;
         });
-        Object.assign(j, { trangThai: 'xong', buoc: '', xongLuc: Date.now(), loi: '' });
-        const ten = hd.tenFile(d, j, r.files[0].mime, 0);
-        this.log('success', `✅ [HỆ THỐNG] Việc #${j.so} xong ${j.loai === 'video' ? 'video' : 'ảnh'}: ${ten}`);
+        Object.assign(j, { trangThai: 'xong', buoc: '', xongLuc: Date.now(), loi: '', tam: !tai });
+        this.log('success', `✅ [HỆ THỐNG] Việc #${j.so} xong ${video ? 'video' : 'ảnh'}: ` +
+          (tai ? path.relative(goc, j.files[0]) : `${path.basename(j.files[0])} (không tải về — chỉ giữ trong app)`));
+        this._noiVideo(j, d);
       } catch (err) {
         Object.assign(j, { trangThai: 'loi', buoc: '', loi: `Không ghi được file: ${err.message}` });
         this.log('error', `❌ #${j.so} ${j.loi}`);

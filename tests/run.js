@@ -66,6 +66,22 @@ test('tên file: Mac_dinh/Mac_dinh_083.png, _2 khi nhiều file, đuôi theo mim
   assert.strictEqual(HD.tenFile(d, { so: 83 }, 'image/webp', 1), 'Mac_dinh/Mac_dinh_083_2.webp');
   assert.strictEqual(HD.tenFile(d, { so: 1200 }, 'video/mp4', 0), 'Mac_dinh/Mac_dinh_1200.mp4');
 });
+test('mẫu tên file: ký hiệu, thư mục con, ký tự cấm, không thoát ra ngoài bằng ..', () => {
+  const d = { ten: 'Truyện người que' };
+  const j = { so: 7, stt: 42, loai: 'video', prompt: 'Lan đứng ở ban công lúc hoàng hôn rực rỡ', taoLuc: new Date(2026, 9, 10).getTime() };
+  assert.strictEqual(HD.tenFile(d, j, 'video/mp4', 0, '{duAn}_{stt}'), 'Truyen_nguoi_que_042.mp4');
+  assert.strictEqual(HD.tenFile(d, j, 'video/mp4', 0, 'video/{ngay}/{stt}_{prompt}'), 'video/2026-10-10/042_Lan_dung_o_ban_cong_luc.mp4');
+  assert.strictEqual(HD.tenFile(d, j, 'video/mp4', 0, '../../{stt}?:*'), '_/_/042___.mp4');
+  assert.strictEqual(HD.tenFile(d, j, 'video/mp4', 0, '   '), 'Truyen_nguoi_que/Truyen_nguoi_que_007.mp4');
+  assert.strictEqual(HD.tenFile(d, { so: 3 }, 'image/png', 0, '{stt}'), '003.png', 'thiếu stt thì dùng số hàng đợi');
+});
+test('chọn khoảng prompt: giữ số thứ tự gốc, bỏ trống = tới cuối, ngoài khoảng = rỗng', () => {
+  const ds = ['a', 'b', 'c', 'd', 'e'];
+  assert.deepStrictEqual(HD.chonKhoang(ds, 2, 4).map((x) => x.stt), [2, 3, 4]);
+  assert.deepStrictEqual(HD.chonKhoang(ds, '', '').map((x) => x.prompt), ds);
+  assert.deepStrictEqual(HD.chonKhoang(ds, 4, 99).map((x) => x.stt), [4, 5]);
+  assert.deepStrictEqual(HD.chonKhoang(ds, 9, ''), []);
+});
 test('việc kế tiếp: cũ nhất trước, ưu tiên chat dở của mình, bỏ qua chat dở của người khác', () => {
   const ds = [
     { id: 1, trangThai: 'xong', taoLuc: 1 },
@@ -122,7 +138,8 @@ function dungDieuPhoi(o = {}) {
     store, taiKhoan: tk, log: (m, c) => nhatKy.push(`[${m}] ${c}`), bao: () => {},
     taoLuong: o.taoLuong || (() => ({ ranh: true, dung() {} })), huyLuong: () => {},
     docFile: (p) => ({ ten: path.basename(p), mime: 'image/png', b64: 'AA==' }),
-    ghiFile: o.ghiFile || (() => {}), thuMucRaMacDinh: '/ra'
+    ghiFile: o.ghiFile || (() => {}), thuMucRaMacDinh: '/ra', thuMucTam: '/tam',
+    tonTai: o.tonTai || (() => false)
   });
   clearInterval(dp.hen);
   return { dp, tk, store, nhatKy };
@@ -140,6 +157,54 @@ test('thêm: số bản, ảnh theo dòng, tự nhận nhân vật, số thứ t
   assert.strictEqual(dp.viec[0].prompt, 'Lan ở biển điện ảnh');
   assert.strictEqual(dp.viec[0].tyLe, '4:3');
   assert.strictEqual(dp.them({ prompts: ['  '] }).ok, false);
+});
+test('khoảng prompt: chỉ thêm prompt 2–3, ảnh theo dòng vẫn khớp số gốc', () => {
+  const { dp } = dungDieuPhoi();
+  const r = dp.them({ prompts: ['p1', 'p2', 'p3', 'p4'], tuSo: 2, denSo: 3, thamChieuTheoDong: [['a1'], ['a2'], ['a3'], ['a4']] });
+  assert.strictEqual(r.so, 2);
+  assert.deepStrictEqual(dp.viec.map((j) => [j.prompt, j.stt, j.thamChieu[0]]), [['p2', 2, 'a2'], ['p3', 3, 'a3']]);
+  assert.strictEqual(dp.them({ prompts: ['x'], tuSo: 5 }).ok, false);
+});
+test('ảnh xong → tự thêm video dùng ảnh đó, chung prompt, cùng số thứ tự, chỉ một lần', () => {
+  const { dp } = dungDieuPhoi();
+  dp.them({ prompts: ['a', 'b'], tyLe: '16:9', tuSo: 2, chuoiVideo: { prompt: 'zoom chậm', tyLe: '' } });
+  const anh = dp.viec[0];
+  dp._ketThuc(anh, { ok: true, files: [{ mime: 'image/png', b64: 'AA==' }] }, null);
+  const v = dp.viec.find((j) => j.loai === 'video');
+  assert.ok(v, 'có việc video');
+  assert.deepStrictEqual([v.prompt, v.tyLe, v.stt, v.tuAnh, v.thamChieu], ['zoom chậm', '16:9', 2, anh.id, anh.files]);
+  dp._ketThuc(anh, { ok: true, files: [{ mime: 'image/png', b64: 'AA==' }] }, null);
+  assert.strictEqual(dp.viec.filter((j) => j.loai === 'video').length, 1, 'tạo lại ảnh không nhân đôi video');
+  dp.them({ loai: 'video', prompts: ['v'], chuoiVideo: { prompt: 'x' } });
+  assert.strictEqual(dp.viec[dp.viec.length - 1].chuoi, null, 'video không nối tiếp');
+});
+test('thư mục + mẫu tên riêng cho ảnh/video; tắt tải về → ghi vào thư mục tạm', () => {
+  const ghi = [];
+  const { dp } = dungDieuPhoi({ ghiFile: (p) => ghi.push(p.replace(/\\/g, '/')) });
+  dp.datCaiDat({ thuMucAnh: '/A', thuMucVideo: '/V', tenAnh: 'anh_{stt}', tenVideo: '{duAn}/vid_{stt}', taiVideo: false });
+  dp.them({ prompts: ['x'] });
+  dp.them({ loai: 'video', prompts: ['y'] });
+  dp._ketThuc(dp.viec[0], { ok: true, files: [{ mime: 'image/png', b64: 'AA==' }] }, null);
+  dp._ketThuc(dp.viec[1], { ok: true, files: [{ mime: 'video/mp4', b64: 'AA==' }] }, null);
+  assert.deepStrictEqual(ghi, ['/A/anh_001.png', '/tam/Mac_dinh/vid_001.mp4']);
+  assert.strictEqual(dp.viec[1].tam, true);
+  assert.strictEqual(dp.viec[0].tam, false);
+});
+test('không ghi đè file người khác: trùng tên thì thêm (2), Tạo lại thì ghi đè file của chính nó', () => {
+  const daCo = new Set(['/ra/x_001.png']);
+  const ghi = [];
+  const { dp } = dungDieuPhoi({ tonTai: (p) => daCo.has(p.replace(/\\/g, '/')), ghiFile: (p) => { ghi.push(p.replace(/\\/g, '/')); daCo.add(p.replace(/\\/g, '/')); } });
+  dp.datCaiDat({ tenAnh: 'x_{stt}' });
+  dp.them({ prompts: ['a'] });
+  const j = dp.viec[0];
+  dp._ketThuc(j, { ok: true, files: [{ mime: 'image/png', b64: 'AA==' }] }, null);
+  assert.strictEqual(ghi[0], '/ra/x_001 (2).png');
+  dp._ketThuc(j, { ok: true, files: [{ mime: 'image/png', b64: 'AA==' }] }, null);
+  assert.strictEqual(ghi[1], '/ra/x_001 (2).png', 'Tạo lại: cùng file của chính việc đó');
+});
+test('nâng cấp từ 1.0.0: thuMucRa cũ thành thư mục của cả ảnh lẫn video', () => {
+  const { dp } = dungDieuPhoi({ duLieu: { caiDat: { thuMucRa: '/cu' } } });
+  assert.deepStrictEqual([dp.thuMucRa('anh'), dp.thuMucRa('video'), dp.caiDat.thuMucRa], ['/cu', '/cu', undefined]);
 });
 test('chế độ Người mẫu: nhân vật chọn tay thắng tự nhận', () => {
   const { dp } = dungDieuPhoi();
@@ -186,7 +251,7 @@ test('kết thúc thành công: ghi file đúng tên, đánh dấu tài khoản 
 test('cài đặt bị kẹp trong khoảng an toàn; mẫu thiếu {prompt} trả về mẫu gốc', () => {
   const { dp } = dungDieuPhoi();
   dp.datCaiDat({ luongMoiTK: 99, nghiGiuaLanGui: -5, choAnhGiay: 'x', mau: { anh: 'không có chỗ prompt' } });
-  assert.strictEqual(dp.caiDat.luongMoiTK, 12);
+  assert.strictEqual(dp.caiDat.luongMoiTK, 20);
   assert.strictEqual(dp.caiDat.nghiGiuaLanGui, 0);
   assert.strictEqual(dp.caiDat.choAnhGiay, 240);
   assert.strictEqual(dp.caiDat.mau.anh, HD.MAU_MAC_DINH.anh);

@@ -13,15 +13,18 @@
   let S = null;
   const U = Object.assign({
     trang: 'anh', duAn: '', loc: 'tat', tim: '', moiNhat: true, cheDo: 'tudo', tyLe: { anh: '9:16', video: '9:16' },
-    nhap: { anh: '', video: '' }, tvLoc: 'tat', tvDuAn: ''
+    nhap: { anh: '', video: '' }, tvLoc: 'tat', tvDuAn: '', chuoi: { bat: false, prompt: '', tyLe: '' }
   }, docLuu());
-  U.chon = new Set(); U.chiTiet = null; U.nvChon = new Set(); U.thamChieu = []; U.thuMucAnh = null; U.log = []; U.dangNhapMo = false;
+  U.chon = new Set(); U.chiTiet = null; U.nvChon = new Set(); U.log = []; U.dangNhapMo = false;
+  // Ảnh tham chiếu / thư mục ảnh RIÊNG cho từng trang: ảnh gắn ở trang video không được dính sang trang ảnh.
+  U.tc = { anh: { ds: [], thuMuc: null }, video: { ds: [], thuMuc: null } };
+  const TC = () => U.tc[loaiTrang()];
 
   function docLuu() { try { return JSON.parse(localStorage.getItem(KHOA)) || {}; } catch (_) { return {}; } }
   function luuUi() {
     try {
       localStorage.setItem(KHOA, JSON.stringify({ trang: U.trang, duAn: U.duAn, loc: U.loc, moiNhat: U.moiNhat, cheDo: U.cheDo,
-        tyLe: U.tyLe, nhap: U.nhap, tvLoc: U.tvLoc, tvDuAn: U.tvDuAn }));
+        tyLe: U.tyLe, nhap: U.nhap, tvLoc: U.tvLoc, tvDuAn: U.tvDuAn, chuoi: U.chuoi }));
     } catch (_) {}
   }
 
@@ -112,6 +115,8 @@
         : 'Mô tả chi tiết ảnh bạn muốn tạo…\nMỗi dòng là một prompt. Gõ tên nhân vật (vd: Lan) để tự gửi kèm ảnh nhân vật.';
       $('#oPrompt').value = U.nhap[loaiTrang()] || '';
       for (const b of $$('#tyLe button')) b.classList.toggle('on', b.dataset.v === U.tyLe[loaiTrang()]);
+      $('#promptVideoChung').value = U.chuoi.prompt;
+      $('#tyLeVideoChuoi').value = U.chuoi.tyLe;
     }
     if (trang === 'caidat') veCaiDat();
     luuUi();
@@ -155,15 +160,22 @@
   function veTao() {
     const ds = HD.tachPrompt($('#oPrompt').value, S.caiDat.tachPrompt);
     $('#demPrompt').textContent = `${ds.length} prompt · ${$('#oPrompt').value.length.toLocaleString('vi-VN')} ký tự`;
+    const k = HD.chonKhoang(ds, $('#tuSo').value, $('#denSo').value);
+    $('#ghiKhoang').textContent = ds.length && k.length < ds.length
+      ? (k.length ? `Sẽ chạy prompt ${k[0].stt}–${k[k.length - 1].stt} (${k.length}/${ds.length})` : 'Khoảng prompt không hợp lệ') : '';
+    $('#khuChuoi').hidden = loaiTrang() !== 'anh';
+    $('#batChuoi').checked = U.chuoi.bat;
+    $('#khuPromptVideo').hidden = !U.chuoi.bat;
+    if (document.activeElement !== $('#luongNhanh')) $('#luongNhanh').value = S.caiDat.luongMoiTK;
     $('#tachPrompt').value = S.caiDat.tachPrompt;
     for (const b of $$('#cheDo button')) b.classList.toggle('on', b.dataset.v === U.cheDo);
     $('#khuNguoiMau').hidden = U.cheDo !== 'nguoimau';
     $('#chonNhanVat').innerHTML = S.nhanVat.length ? S.nhanVat.map((n) =>
       `<button class="chip-nv${U.nvChon.has(n.id) ? ' on' : ''}" data-nv="${esc(n.id)}">${n.anh[0] ? `<img src="${esc(fileUrl(n.anh[0]))}">` : ic('user-round')}${esc(n.ten)}</button>`).join('')
       : '<small>Chưa có nhân vật — thêm ở mục Nhân vật.</small>';
-    let html = U.thamChieu.map((p, i) =>
+    let html = TC().ds.map((p, i) =>
       `<div class="anh-nho" title="${esc(p)}"><img src="${esc(fileUrl(p))}"><button data-bo="${i}">${ic('x')}</button></div>`).join('');
-    if (U.thuMucAnh) html += `<div class="ghi-thu-muc">${ic('folder-open')}<span>Thư mục: <b>${U.thuMucAnh.anh.length} ảnh</b> → gán lần lượt cho từng prompt</span><button class="lien-ket" data-bo-thu-muc>Bỏ</button></div>`;
+    if (TC().thuMuc) html += `<div class="ghi-thu-muc">${ic('folder-open')}<span>Thư mục: <b>${TC().thuMuc.anh.length} ảnh</b> → gán lần lượt cho từng prompt</span><button class="lien-ket" data-bo-thu-muc>Bỏ</button></div>`;
     $('#dsThamChieu').innerHTML = html;
   }
 
@@ -233,6 +245,8 @@
         <div class="p" title="${esc(j.prompt)}">${j.so}. ${esc(j.prompt)}</div>
         <div class="the-nho"><span class="tag">${j.loai === 'video' ? 'VIDEO' : 'ẢNH'}</span><span class="tag">${esc(j.tyLe)}</span>${
           j.nhanVat && j.nhanVat.length ? `<span class="tag nv">${j.nhanVat.length} NV</span>` : ''}${
+          j.tuAnh ? `<span class="tag nv" title="Video tạo từ ảnh">TỪ ẢNH</span>` : ''}${
+          j.chuoi && !j.daNoiVideo ? `<span class="tag nv" title="Ảnh xong sẽ tự tạo video">→ VIDEO</span>` : ''}${
           chay ? `<div class="thanh-tien"><div style="width:0%"></div></div><span class="phan-tram">0%</span>` : ''}</div>
       </div>
       <div class="trang-thai"><span class="pill ${cls}">${nhan}</span><small title="${esc(phu)}">${esc(phu)}</small></div>
@@ -268,7 +282,7 @@
     datHtml(hop, `
       <div class="xem-truoc">${xem}</div>
       <div class="ct-prompt">${j.so}. ${esc(j.prompt)}</div>
-      <div class="ct-meta">#${so3(j.so)} · ${esc(gio(j.xongLuc || j.taoLuc))}${f && j.files.length > 1 ? ` · ${j.files.length} file` : ''}</div>
+      <div class="ct-meta">#${so3(j.so)} · ${esc(gio(j.xongLuc || j.taoLuc))}${f && j.files.length > 1 ? ` · ${j.files.length} file` : ''}${j.tam ? ' · không tải về (chỉ trong app)' : ''}</div>
       <span class="pill ${cls}">${nhan}</span>
       ${j.loi && j.trangThai !== 'xong' ? `<div class="ct-loi">${esc(j.loi)}</div>` : ''}
       <div class="ct-nut">
@@ -321,7 +335,7 @@
         }
       }
     } else if (lenh === 'video' && f) {
-      U.thamChieu = [f]; U.thuMucAnh = null;
+      U.tc.video = { ds: [f], thuMuc: null };
       U.tyLe.video = j.tyLe;
       diToi('video');
       $('#oPrompt').focus();
@@ -368,28 +382,34 @@
     const loai = loaiTrang();
     const prompts = HD.tachPrompt($('#oPrompt').value, $('#tachPrompt').value);
     if (!prompts.length) { toast('Chưa có prompt nào', true); $('#oPrompt').focus(); return; }
+    let chuoi = null;
+    if (loai === 'anh' && U.chuoi.bat) {
+      if (!U.chuoi.prompt.trim()) { toast('Đang bật "Ảnh xong → tự tạo video" nhưng chưa nhập prompt video', true); $('#promptVideoChung').focus(); return; }
+      chuoi = { prompt: U.chuoi.prompt, tyLe: U.chuoi.tyLe };
+    }
     let theoDong = null;
-    if (U.thuMucAnh) {
-      const n = U.thuMucAnh.anh.length;
+    if (TC().thuMuc) {
+      const n = TC().thuMuc.anh.length;
       if (n !== prompts.length && !(await xacNhan('Số ảnh và số prompt lệch nhau',
         `Thư mục có <b>${n}</b> ảnh nhưng có <b>${prompts.length}</b> prompt. Ảnh được gán lần lượt theo thứ tự; ${n < prompts.length ? 'prompt thừa sẽ không có ảnh' : 'ảnh thừa bị bỏ qua'}.`, 'Vẫn tạo'))) return;
-      theoDong = prompts.map((_, i) => (U.thuMucAnh.anh[i] ? [U.thuMucAnh.anh[i]] : []));
+      theoDong = prompts.map((_, i) => (TC().thuMuc.anh[i] ? [TC().thuMuc.anh[i]] : []));
     }
     const r = await api.call('them', {
-      duAn: U.duAn, loai, prompts, tyLe: U.tyLe[loai], thamChieu: U.thamChieu, thamChieuTheoDong: theoDong,
+      duAn: U.duAn, loai, prompts, tyLe: U.tyLe[loai], thamChieu: TC().ds, thamChieuTheoDong: theoDong,
       nhanVatIds: U.cheDo === 'nguoimau' ? [...U.nvChon] : [], tuNhanVat: $('#tuNhanVat').checked,
-      soBan: $('#soBan').value, hauTo: $('#hauTo').value, chay
+      soBan: $('#soBan').value, hauTo: $('#hauTo').value, tuSo: $('#tuSo').value, denSo: $('#denSo').value,
+      chuoiVideo: chuoi, chay
     });
     if (!r || !r.ok) { toast((r && r.loi) || 'Không thêm được', true); return; }
     $('#oPrompt').value = ''; U.nhap[loai] = ''; luuUi();
     U.loc = 'tat';
-    toast(`Đã thêm ${r.so} việc${chay ? ' và bắt đầu chạy' : ' vào hàng đợi'}`);
+    toast(`Đã thêm ${r.so} việc${chay ? ' và bắt đầu chạy' : ' vào hàng đợi'}${chuoi ? ' — ảnh xong sẽ tự tạo video' : ''}`);
   }
 
   function themThamChieu(ds) {
     const anh = ds.filter((p) => /\.(png|jpe?g|webp)$/i.test(p));
     if (!anh.length) { toast('Chỉ nhận ảnh png, jpg, webp', true); return; }
-    for (const p of anh) if (!U.thamChieu.includes(p)) U.thamChieu.push(p);
+    for (const p of anh) if (!TC().ds.includes(p)) TC().ds.push(p);
     veTao();
   }
 
@@ -496,12 +516,22 @@
   function veCaiDat() {
     if (!S) return;
     const c = S.caiDat;
-    $('#cdThuMucRa').value = S.thuMucRa;
+    $('#cdThuMucAnh').value = S.thuMuc.anh; $('#cdThuMucVideo').value = S.thuMuc.video;
+    $('#cdTaiAnh').checked = c.taiAnh; $('#cdTaiVideo').checked = c.taiVideo;
+    $('#cdTenAnh').value = c.tenAnh; $('#cdTenVideo').value = c.tenVideo;
+    viDuTen();
     $('#cdLuong').value = c.luongMoiTK; $('#cdNghi').value = c.nghiGiuaLanGui; $('#cdThuLai').value = c.tuThuLai;
     $('#cdChoAnh').value = c.choAnhGiay; $('#cdChoVideo').value = c.choVideoGiay; $('#cdChoChu').value = c.choChuGiay;
     $('#cdPng').checked = !!c.png;
     $('#cdMauAnh').value = c.mau.anh; $('#cdMauVideo').value = c.mau.video;
     veCapNhat();
+  }
+  /** Ví dụ tên file ngay dưới ô mẫu tên — thấy liền kết quả khi gõ. */
+  function viDuTen() {
+    const d = duAnHienTai() || { ten: 'Mặc định' };
+    const mau = { so: 83, stt: 5, prompt: 'Tranh truyện người que tối giản bố cục dọc', taoLuc: Date.now() };
+    $('#cdViDuAnh').textContent = 'Ví dụ: ' + HD.tenFile(d, { ...mau, loai: 'anh' }, 'image/png', 0, $('#cdTenAnh').value);
+    $('#cdViDuVideo').textContent = 'Ví dụ: ' + HD.tenFile(d, { ...mau, loai: 'video' }, 'video/mp4', 0, $('#cdTenVideo').value);
   }
   function veCapNhat() {
     const cn = S && S.capNhat;
@@ -569,7 +599,7 @@
       else { U.duAn = b.dataset.duAn; U.chiTiet = null; U.chon.clear(); luuUi(); ve(); }
     };
     $('#nutThemDuAn').onclick = duAnMoi;
-    $('#nutMoThuMucDuAn').onclick = () => { const d = duAnHienTai(); api.call('moThuMuc', { dir: `${S.thuMucRa}/${HD.slugTen(d.ten)}` }); };
+    $('#nutMoThuMucDuAn').onclick = () => api.call('moThuMuc', { dir: S.thuMuc[loaiTrang()] });
     $('#nutNhapPrompt').onclick = async () => {
       const t = await api.call('nhapPrompt');
       if (t == null) return;
@@ -603,6 +633,15 @@
     $('#cheDo').onclick = (e) => { const b = e.target.closest('[data-v]'); if (b) { U.cheDo = b.dataset.v; luuUi(); veTao(); } };
     $('#chonNhanVat').onclick = (e) => { const b = e.target.closest('[data-nv]'); if (!b) return; const id = b.dataset.nv; U.nvChon.has(id) ? U.nvChon.delete(id) : U.nvChon.add(id); veTao(); };
     $('#oPrompt').addEventListener('input', () => { U.nhap[loaiTrang()] = $('#oPrompt').value; luuUi(); veTao(); });
+    for (const id of ['#tuSo', '#denSo']) $(id).addEventListener('input', veTao);
+    $('#batChuoi').onchange = (e) => { U.chuoi.bat = e.target.checked; luuUi(); veTao(); if (U.chuoi.bat) $('#promptVideoChung').focus(); };
+    $('#promptVideoChung').addEventListener('input', (e) => { U.chuoi.prompt = e.target.value; luuUi(); });
+    $('#tyLeVideoChuoi').onchange = (e) => { U.chuoi.tyLe = e.target.value; luuUi(); };
+    $('#luongNhanh').onchange = async (e) => {
+      const n = Math.max(1, Math.min(20, parseInt(e.target.value, 10) || 3));
+      await api.call('datCaiDat', { luongMoiTK: n });
+      toast(`Mỗi tài khoản chạy ${n} luồng${n > 6 ? ' — nhiều luồng dễ bị Muse giới hạn, theo dõi nhật ký' : ''}`);
+    };
     $('#tachPrompt').onchange = () => { api.call('datCaiDat', { tachPrompt: $('#tachPrompt').value }); };
     $('#tyLe').onclick = (e) => {
       const b = e.target.closest('[data-v]');
@@ -617,7 +656,7 @@
       const r = await api.call('chonThuMucAnh');
       if (!r) return;
       if (!r.anh.length) { toast('Thư mục không có ảnh nào', true); return; }
-      U.thuMucAnh = r; veTao();
+      TC().thuMuc = r; veTao();
       toast(`Thư mục có ${r.anh.length} ảnh — gán lần lượt cho từng prompt`);
     };
     const tha = $('#thaAnh');
@@ -629,8 +668,8 @@
     });
     $('#dsThamChieu').onclick = (e) => {
       const b = e.target.closest('[data-bo]');
-      if (b) { U.thamChieu.splice(+b.dataset.bo, 1); veTao(); }
-      if (e.target.closest('[data-bo-thu-muc]')) { U.thuMucAnh = null; veTao(); }
+      if (b) { TC().ds.splice(+b.dataset.bo, 1); veTao(); }
+      if (e.target.closest('[data-bo-thu-muc]')) { TC().thuMuc = null; veTao(); }
     };
     $('#nutTaoChay').onclick = () => taoViec(true);
     $('#nutTaoMenu').onclick = (e) => { e.stopPropagation(); const m = $('#menuTao'); const an = m.hidden; dongMenu(); m.hidden = !an; };
@@ -745,8 +784,13 @@
     window.addEventListener('resize', baoKhung);
 
     // Cài đặt
-    $('#cdChonThuMuc').onclick = async () => { const d = await api.call('chonThuMucRa'); if (d) $('#cdThuMucRa').value = d; };
-    $('#cdMoThuMuc').onclick = () => api.call('moThuMuc', { dir: S.thuMucRa });
+    $('#trang-caidat').addEventListener('click', async (e) => {
+      const c = e.target.closest('[data-chon-thu-muc]'), m = e.target.closest('[data-mo-thu-muc]');
+      if (c) { const d = await api.call('chonThuMucRa', { loai: c.dataset.chonThuMuc }); if (d) $(c.dataset.chonThuMuc === 'video' ? '#cdThuMucVideo' : '#cdThuMucAnh').value = d; }
+      if (m) api.call('moThuMuc', { dir: S.thuMuc[m.dataset.moThuMuc] });
+    });
+    $('#cdTenAnh').addEventListener('input', viDuTen);
+    $('#cdTenVideo').addEventListener('input', viDuTen);
     $('#cdMoDuLieu').onclick = () => api.call('moThuMucDuLieu');
     $('#cdKiemCapNhat').onclick = () => api.call('kiemCapNhat');
     $('#cdXemLuong').onchange = (e) => api.call('xemLuong', { bat: e.target.checked });
@@ -755,7 +799,8 @@
       await api.call('datCaiDat', {
         luongMoiTK: $('#cdLuong').value, nghiGiuaLanGui: $('#cdNghi').value, tuThuLai: $('#cdThuLai').value,
         choAnhGiay: $('#cdChoAnh').value, choVideoGiay: $('#cdChoVideo').value, choChuGiay: $('#cdChoChu').value,
-        png: $('#cdPng').checked, mau: { anh: $('#cdMauAnh').value, video: $('#cdMauVideo').value }
+        png: $('#cdPng').checked, mau: { anh: $('#cdMauAnh').value, video: $('#cdMauVideo').value },
+        taiAnh: $('#cdTaiAnh').checked, taiVideo: $('#cdTaiVideo').checked, tenAnh: $('#cdTenAnh').value, tenVideo: $('#cdTenVideo').value
       });
       veCaiDat();
       toast('Đã lưu cài đặt');

@@ -10,18 +10,20 @@ App desktop (Windows / macOS) tự động tạo **ảnh và video hàng loạt 
 2. **Tài khoản** → *Đăng nhập* → đăng nhập muse.ai trong khung bên phải → *Xong, đóng lại*. Muốn chạy nhiều tài khoản thì *Thêm tài khoản* rồi đăng nhập từng tài khoản.
 3. **Tạo ảnh / Tạo video** → dán prompt (mỗi dòng một prompt) → chọn tỷ lệ → **Tạo & chạy**.
 
-Kết quả lưu ở `Tài liệu/Muse Automation Studio/<Dự_án>/<Dự_án>_001.png` (đổi được trong Cài đặt).
+Kết quả mặc định lưu ở `Tài liệu/Muse Automation Studio/<Dự_án>/<Dự_án>_001.png`; thư mục và tên file của ảnh, video đổi riêng được trong *Cài đặt → Tải về & tên file*.
 
 ## Tính năng
 
 | | |
 |---|---|
-| Nhiều luồng | Mỗi tài khoản N luồng (mặc định 3, tối đa 12), các tài khoản đang bật chạy cùng lúc |
+| Nhiều luồng | Mỗi tài khoản N luồng (mặc định 3, tối đa 20 — chỉnh ở Cài đặt nâng cao trong cột Tạo), các tài khoản đang bật chạy cùng lúc |
 | Nhiều tài khoản | Mỗi tài khoản một phiên đăng nhập riêng, không đá nhau ra |
 | Chat sạch | Mỗi prompt chạy trong một *chat phụ mới* của Muse, không dính ngữ cảnh hay ảnh của prompt trước |
 | Ảnh tham chiếu | Kéo thả ảnh để gửi kèm mọi prompt; *chọn thư mục* để gán ảnh 1 → prompt 1, ảnh 2 → prompt 2… |
 | Nhân vật | Lưu ảnh nhân vật kèm tên; prompt nhắc tên là tự gửi kèm ảnh (*Giữ nguyên nhân vật*), hoặc chế độ *Người mẫu* gắn vào mọi prompt |
-| Ảnh → video | *⋮ → Tạo video từ ảnh này*: ảnh đã xong làm khung đầu cho video |
+| Ảnh → video | *⋮ → Tạo video từ ảnh này*; hoặc bật **Ảnh xong → tự tạo video** để cả mẻ ảnh tự sinh video (chung một prompt video) |
+| Chạy một đoạn | *Cài đặt nâng cao → Chạy từ prompt số … đến số …* |
+| Tải về & tên file | Thư mục riêng cho ảnh / video, công tắc tải về riêng, mẫu tên `{duAn}` `{so}` `{stt}` `{prompt}` `{ngay}` `{loai}`; trùng tên tự thêm (2), không ghi đè |
 | Chỉnh sửa ảnh | *Chỉnh sửa* ở ảnh đã xong: gửi ảnh + yêu cầu sửa thành việc mới |
 | Dừng không mất lượt | Dừng giữa chừng hay tắt app, lần chạy sau mở lại đúng chat cũ để lấy kết quả, **không gửi lại prompt** |
 | Muse hỏi lại | Muse trả lời chữ thay vì ảnh thì dòng đó báo *Lỗi* kèm câu Muse nói; sửa prompt rồi *Tạo lại* |
@@ -62,6 +64,11 @@ Biến môi trường cho kiểm thử: `MUSE_URL` (địa chỉ Muse giả), `M
 Phát hành: tăng `version` trong `package.json`, ghi `GHI_CHU_BAN_MOI.md` (nhắc số phiên bản), push, rồi *Actions → Phat hanh ban moi → Run workflow*. Repo phải để **public** thì app mới tự cập nhật được.
 
 ## Lịch sử
+
+### 1.1.0 (10/10/2026)
+- Ảnh xong → tự tạo video (chung prompt video, cùng `{stt}` với ảnh). Chạy từ prompt số … đến số …. Thư mục, công tắc tải về và mẫu tên file riêng cho ảnh/video. Nút nhập .txt dưới ô Prompt. Số luồng chỉnh ngay trong cột Tạo, tối đa 20.
+- Sửa lỗi: ảnh tham chiếu dùng chung giữa trang Tạo ảnh và Tạo video — gắn ảnh ở trang video ("Tạo video từ ảnh này") làm mọi prompt ảnh sau đó bị gửi kèm ảnh đó. Lần trước không bắt được vì bài đầu-cuối chưa có bước quay lại trang ảnh sau khi gắn ảnh ở trang video; nay có (`ảnh gắn ở trang video KHÔNG dính sang prompt ảnh`).
+- Nâng cấp từ 1.0.0: thư mục kết quả cũ thành thư mục của cả ảnh lẫn video.
 
 ### 1.0.0 (10/10/2026)
 - Bản đầu tiên. Selector đo trên muse.ai thật ngày 10/10/2026: gửi prompt, đính kèm ảnh, 6 việc chạy song song, ảnh → video, lấy file gốc (ảnh webp → png, video mp4) đều đã thử tay trên trang thật. Đường chạy đầy đủ của app (nhiều luồng, dừng/chạy tiếp, nhân vật, Muse hỏi lại, ảnh nạp lười) được kiểm trên trang Muse giả `tests/fixture-muse.html`.

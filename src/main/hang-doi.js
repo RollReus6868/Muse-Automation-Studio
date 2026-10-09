@@ -89,13 +89,50 @@ function taoTinNhan(job, nhanVat, mau) {
     .trim();
 }
 
-/** Mac_dinh/Mac_dinh_083.png — số thứ tự 3 chữ số, thêm _2, _3 nếu Muse trả nhiều file. */
-function tenFile(duAn, job, mime, thuTu) {
-  const slug = slugTen(duAn && duAn.ten);
-  const so = String(job.so).padStart(3, '0');
+const MAU_TEN_MAC_DINH = '{duAn}/{duAn}_{so}';
+
+/** Một đoạn đường dẫn an toàn trên Windows lẫn Mac: bỏ ký tự cấm, bỏ '..', bỏ dấu chấm/cách cuối. */
+function sachDoan(s) {
+  return String(s).replace(/[<>:"\\|?*\x00-\x1f]/g, '_').replace(/^\.+$/, '_').replace(/[. ]+$/, '').trim();
+}
+
+/**
+ * Tên file theo mẫu người dùng đặt (đường dẫn tương đối, có thể có thư mục con "/").
+ *   {duAn}   tên dự án không dấu        {so}  số thứ tự trong hàng đợi (3 chữ số)
+ *   {stt}    số thứ tự prompt trong mẻ  {prompt} 6 từ đầu của prompt, không dấu
+ *   {ngay}   ngày tạo YYYY-MM-DD        {loai} anh | video
+ * Thêm _2, _3 nếu Muse trả nhiều file cho một việc.
+ */
+function tenFile(duAn, job, mime, thuTu, mau) {
+  const so3 = (n) => String(n || 0).padStart(3, '0');
+  const d = new Date(job.taoLuc || Date.now());
+  const ngay = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const giaTri = {
+    duAn: slugTen(duAn && duAn.ten), so: so3(job.so), stt: so3(job.stt || job.so), ngay, loai: job.loai || 'anh',
+    prompt: slugTen(String(job.prompt || '').split(/\s+/).slice(0, 6).join(' ')).slice(0, 40)
+  };
+  const m = String(mau || '').trim() || MAU_TEN_MAC_DINH;
+  const doan = m.replace(/\{(\w+)\}/g, (x, k) => (k in giaTri ? giaTri[k] : x))
+    .split(/[\\/]+/).map(sachDoan).filter(Boolean);
+  if (!doan.length) doan.push(`${giaTri.duAn}_${giaTri.so}`);
   const duoi = /mp4/.test(mime) ? 'mp4' : /webm/.test(mime) ? 'webm' : /png/.test(mime) ? 'png'
     : /jpe?g/.test(mime) ? 'jpg' : /webp/.test(mime) ? 'webp' : (/video/.test(mime) ? 'mp4' : 'png');
-  return `${slug}/${slug}_${so}${thuTu > 0 ? '_' + (thuTu + 1) : ''}.${duoi}`;
+  doan[doan.length - 1] += `${thuTu > 0 ? '_' + (thuTu + 1) : ''}.${duoi}`;
+  return doan.join('/');
+}
+
+/**
+ * Chọn prompt từ số `tu` đến số `den` (đếm từ 1, gồm cả hai đầu; bỏ trống = tới cùng).
+ * Trả [{prompt, stt}] — stt giữ đúng số thứ tự gốc để đặt tên file / ghép ảnh theo dòng.
+ */
+function chonKhoang(prompts, tu, den) {
+  const n = prompts.length;
+  let a = parseInt(tu, 10), b = parseInt(den, 10);
+  a = Number.isFinite(a) && a > 0 ? a : 1;
+  b = Number.isFinite(b) && b > 0 ? Math.min(b, n) : n;
+  const ra = [];
+  for (let i = a; i <= b; i++) ra.push({ prompt: prompts[i - 1], stt: i });
+  return ra;
 }
 
 /**
@@ -152,7 +189,7 @@ function soSanhTuNhien(a, b) {
 }
 
 const HD = {
-  TY_LE, MAU_MAC_DINH, slugTen, tachPrompt, timNhanVat, taoTinNhan, tenFile,
+  TY_LE, MAU_MAC_DINH, MAU_TEN_MAC_DINH, slugTen, tachPrompt, timNhanVat, taoTinNhan, tenFile, chonKhoang,
   viecKeTiep, thoiGianDuKien, tienDoUoc, daXong, laTraLoiChu, soSanhTuNhien
 };
 // Dùng chung cho tiến trình chính (require) và giao diện (<script> → window.HD).

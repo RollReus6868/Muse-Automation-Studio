@@ -140,6 +140,14 @@ textarea:focus, input:focus, select:focus { border-color: rgba(179, 140, 255, .6
 select option { background: var(--panel-dac); }
 #oPrompt { height: 150px; resize: vertical; padding-bottom: 24px; line-height: 1.5; }
 .dem { position: absolute; right: 10px; bottom: 7px; font-size: 11px; color: var(--chu-mo); pointer-events: none; }
+.duoi-prompt { display: flex; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+.duoi-prompt .mo { font-size: 12px; }
+.khoi-chuoi { margin-top: 14px; padding: 2px 12px 12px; border-radius: 12px; border: 1px solid var(--vien-dam); background: rgba(0, 0, 0, .15); }
+.khoi-chuoi textarea { margin-top: 10px; font-size: 13px; resize: vertical; }
+.o-chon.nho { margin-top: 8px; font-size: 12.5px; }
+.o-chon.nho select { width: 130px; }
+.tai-ve { gap: 22px; }
+.tai-ve > div > label { margin-top: 10px; }
 .tha-anh { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 16px 10px; border: 1.5px dashed var(--vien-dam);
   border-radius: 12px; text-align: center; font-size: 13px; color: var(--chu-phu); transition: .15s; }
 .tha-anh i { width: 22px; height: 22px; }
