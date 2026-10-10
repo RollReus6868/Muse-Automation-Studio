@@ -35,13 +35,20 @@ sv.listen(0, '127.0.0.1', () => {
       MUSE_E2E_TAM: tam, MUSE_NO_UPDATE_CHECK: '1' },
     stdio: ['ignore', 'pipe', 'pipe']
   });
-  p.stdout.on('data', (d) => process.stdout.write(d));
+  let raChu = '';
+  p.stdout.on('data', (d) => { raChu += d; process.stdout.write(d); });
   p.stderr.on('data', (d) => { const s = String(d); if (!/dbus|bus\.cc|viz_main|command_buffer|Fontconfig|gpu/i.test(s)) process.stderr.write(s); });
   const hen = setTimeout(() => { console.log('E2E: QUÁ GIỜ (240s)'); p.kill('SIGKILL'); }, 240000);
   p.on('exit', (code) => {
     clearTimeout(hen);
     sv.close();
     console.log(code === 0 ? 'E2E: PASS' : `E2E: FAIL (mã ${code})`);
+    if (code !== 0 && process.env.GITHUB_ACTIONS) {
+      // Log của job không tải được từ phiên Claude → đưa các dòng đáng chú ý lên thành annotation.
+      const quanTrong = raChu.split('\n').filter((l) => /✘|⏱|kẹt|LỖI|KẾT QUẢ|^--/.test(l)).join('\n').slice(-5000);
+      const esc = (x) => x.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
+      console.log(`::error title=E2E ${process.platform}::${esc(quanTrong || raChu.slice(-5000))}`);
+    }
     process.exit(code === 0 ? 0 : 1);
   });
 });

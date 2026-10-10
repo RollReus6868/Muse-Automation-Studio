@@ -18,6 +18,16 @@ module.exports = function e2e({ win, app, LENH, dieuPhoi }) {
     return false;
   };
   const viec = () => dieuPhoi.viec;
+  /** Chờ một biểu thức trong giao diện thành đúng (máy CI chậm: đừng kiểm ngay sau khi bấm). */
+  const choJs = async (bieuThuc, ms, ten) => {
+    const het = Date.now() + ms;
+    while (Date.now() < het) {
+      if (await win.webContents.executeJavaScript(bieuThuc, true).catch(() => false)) return true;
+      await ngu(200);
+    }
+    ghi(`  ⏱ quá giờ chờ giao diện: ${ten}`);
+    return false;
+  };
   const daGui = async () => (await net.fetch(`${process.env.MUSE_URL}/__da-gui`)).json();
   const PNG1 = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFElEQVR4nGP8z8DwnwEJMDGgAQAy2wIDqvFBJQAAAABJRU5ErkJggg==', 'base64');
   const chup = async (ten) => {
@@ -165,6 +175,7 @@ module.exports = function e2e({ win, app, LENH, dieuPhoi }) {
         const v = document.querySelector('#promptVideoChung'); v.value = 'máy quay đẩy chậm'; v.dispatchEvent(new Event('input'));
       })()`);
       await ngu(300);
+      await choJs(`/prompt 2–3/.test(document.querySelector('#ghiKhoang').textContent)`, 5000, 'dòng báo khoảng prompt');
       const ghiKhoang = await js(`document.querySelector('#ghiKhoang').textContent`);
       kiem(/prompt 2–3 \(2\/4\)/.test(ghiKhoang), `giao diện báo khoảng sẽ chạy ("${ghiKhoang}")`);
       await chup('e2e-chuoi-video.png');
@@ -185,12 +196,13 @@ module.exports = function e2e({ win, app, LENH, dieuPhoi }) {
       ghi('-- 5. Tải về trong Cài đặt nâng cao + Nhập nhiều file .txt');
       const tenO = () => js(`({ nhan: document.querySelector('#ncNhanTen').firstChild.textContent, ten: document.querySelector('#ncTen').value, vd: document.querySelector('#ncViDu').textContent })`);
       const oAnh = await tenO();
-      await js(`window.__diToi('video')`); await ngu(300);
+      await js(`window.__diToi('video')`);
+      await choJs(`document.querySelector('#ncTen').value === 'clip_{stt}'`, 5000, 'ô tên file trang video');
       const oVid = await tenO();
       kiem(oAnh.ten === '{duAn}/anh_{stt}' && oVid.ten === 'clip_{stt}' && /video/.test(oVid.nhan) && /clip_005\.mp4/.test(oVid.vd),
         `ô tên file đổi theo trang (ảnh "${oAnh.ten}", video "${oVid.ten}", ${oVid.vd})`);
       await js(`(() => { const o = document.querySelector('#ncTen'); o.value = 'vid_{stt}'; o.dispatchEvent(new Event('input')); o.dispatchEvent(new Event('change')); })()`);
-      await ngu(400);
+      await cho(() => dieuPhoi.caiDat.tenVideo === 'vid_{stt}', 5000, 'lưu tên video');
       kiem(dieuPhoi.caiDat.tenVideo === 'vid_{stt}' && dieuPhoi.caiDat.tenAnh === '{duAn}/anh_{stt}', 'sửa tên ở trang video chỉ đổi tên video');
       await js(`window.__diToi('anh')`); await ngu(300);
       // Tắt chuỗi video và khoảng prompt của bước 4.
@@ -203,7 +215,7 @@ module.exports = function e2e({ win, app, LENH, dieuPhoi }) {
       ];
       const truoc5 = viec().length, duAnTruoc = dieuPhoi.duAn.length;
       await js(`document.querySelector('#nutNhapNhieu').click()`);
-      await cho(() => true, 600, '');
+      await choJs(`!document.querySelector('#phu').hidden && /Tập 2/.test(document.querySelector('#hopNoiDung').innerText)`, 10000, 'hộp xác nhận nhập nhiều file');
       const hop = await js(`({ mo: !document.querySelector('#phu').hidden, chu: document.querySelector('#hopNoiDung').innerText })`);
       kiem(hop.mo && /Tập 1 — 2 prompt/.test(hop.chu) && /Tập 2 — 1 prompt/.test(hop.chu) && /Bỏ qua.*rỗng/.test(hop.chu), 'hộp xác nhận liệt kê từng file, bỏ qua file rỗng');
       await chup('e2e-nhap-nhieu.png');
@@ -218,6 +230,7 @@ module.exports = function e2e({ win, app, LENH, dieuPhoi }) {
       kiem(m5.map((j) => path.relative(ra, j.files[0]).replace(/\\/g, '/')).sort().join(',') === 'Tap_1/anh_001.png,Tap_1/anh_002.png,Tap_2/anh_001.png',
         'file lưu theo dự án, không trùng tên giữa các file .txt');
       kiem(!m5.some((j) => j.chuoi), 'tắt "tự tạo video" thì không nối video');
+      await choJs(`/^Tập 1/.test(document.querySelector('#tenDuAn').textContent)`, 5000, 'ô dự án chuyển sang Tập 1');
       const ui5 = await js(`document.querySelector('#tenDuAn').textContent`);
       kiem(/^Tập 1/.test(ui5), `chuyển sang dự án đầu tiên vừa tạo ("${ui5}")`);
     } catch (err) {
