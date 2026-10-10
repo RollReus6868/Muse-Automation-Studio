@@ -90,7 +90,16 @@ class Luong {
       const r = await this.goi(`window.__muse.gui(${JSON.stringify({ text: ctx.tinNhan, files: ctx.files || [] })})`);
       if (!r || !r.ok) {
         if (r && r.loi === 'can-dang-nhap') return { ok: false, canDangNhap: true, loi: 'Tài khoản chưa đăng nhập Muse' };
-        return { ok: false, loi: `Gửi prompt hỏng (${r ? r.loi : '?'})${r && r.chu ? ': ' + r.chu : ''}` };
+        const GIAI_THICH = {
+          'o-soan-tin-chua-nap': 'ô soạn tin của Muse không nạp xong sau 30 giây',
+          'nut-gui-bi-tat': 'nút Gửi của Muse không bật được sau 60 giây',
+          'gui-khong-an': 'bấm Gửi nhưng Muse không nhận',
+          'khong-dinh-kem-duoc': 'không đính kèm được ảnh',
+          'khong-dan-duoc-prompt': 'không dán được prompt vào ô soạn tin',
+          'khong-thay-o-nhap': 'không thấy ô soạn tin'
+        };
+        const ma = r ? r.loi : '?';
+        return { ok: false, loi: `Gửi prompt hỏng: ${GIAI_THICH[ma] || ma}${r && r.chu ? ` (${r.chu})` : ''}` };
       }
       ctx.capNhat({ thread: r.thread, buoc: 'tao' });
       this.log('info', `[${this.id}] #${job.so} đã gửi → ${r.thread}`);

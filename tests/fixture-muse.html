@@ -31,21 +31,36 @@ function veDangNhap() {
 }
 
 function veKhung(tinHtml) {
+  // Như Muse thật (đo 10/10/2026): ô nhập "tạm" (data-hatch-composer-prehydration-input) có ngay,
+  // nhưng phần điều khiển chỉ được gắn khi trang ĐANG HIỆN (requestAnimationFrame chạy): trang ẩn
+  // thì không bao giờ có nút Send. Nút Send chỉ xuất hiện khi ô nhập có chữ.
   goc.innerHTML = `
     <div role="log" aria-label="Chat messages">${tinHtml || ''}</div>
+    <svg role="status" aria-label="Loading" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg>
     <form onsubmit="return false">
       <div id="dinhKem"></div>
-      <textarea aria-label="Message" placeholder="Message"></textarea>
+      <textarea aria-label="Message" placeholder="Message" data-hatch-composer-prehydration-input="true"></textarea>
       <button aria-label="Attach file" type="submit"></button><input type="file" multiple hidden>
-      <button aria-label="Send" type="submit" disabled>↑</button>
+      <span id="choNutGui"></span>
     </form>`;
-  const ta = document.querySelector('textarea'), gui = document.querySelector('[aria-label=Send]');
+  const ta = document.querySelector('textarea');
   const inp = document.querySelector('input[type=file]');
-  ta.addEventListener('input', () => { gui.disabled = !ta.value.trim(); });
-  inp.addEventListener('change', () => {
-    document.getElementById('dinhKem').innerHTML = Array.from(inp.files).map((f) => `<span>${f.name}<button aria-label="Remove attachment" type="button">x</button></span>`).join('');
-  });
-  gui.addEventListener('click', () => guiTin(ta.value, inp.files ? inp.files.length : 0));
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    ta['__reactFiber$gia'] = {};           // dấu "đã hydrate" giống React
+    const veNut = () => {
+      const co = !!ta.value.trim();
+      const nut = document.querySelector('[aria-label=Send]');
+      if (co && !nut) {
+        document.getElementById('choNutGui').innerHTML = '<button aria-label="Send" type="submit">↑</button>';
+        document.querySelector('[aria-label=Send]').addEventListener('click', () => guiTin(ta.value, inp.files ? inp.files.length : 0));
+      } else if (!co && nut) nut.remove();
+    };
+    ta.addEventListener('input', veNut);
+    veNut();
+    inp.addEventListener('change', () => {
+      document.getElementById('dinhKem').innerHTML = Array.from(inp.files).map((f) => `<span>${f.name}<button aria-label="Remove attachment" type="button">x</button></span>`).join('');
+    });
+  }));
 }
 
 async function guiTin(prompt, soFile) {

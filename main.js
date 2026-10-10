@@ -74,16 +74,42 @@ function phien(tk) {
   return ses;
 }
 
-function taoView(tk) {
-  const v = new WebContentsView({
-    webPreferences: { session: phien(tk), backgroundThrottling: false, contextIsolation: true, sandbox: true }
-  });
-  v.webContents.setWindowOpenHandler(({ url }) => {
-    if (/^https?:/.test(url)) v.webContents.loadURL(url);
+const WEB_PREFS = (tk) => ({ session: phien(tk), backgroundThrottling: false, contextIsolation: true, sandbox: true });
+function ganWc(wc) {
+  wc.setWindowOpenHandler(({ url }) => {
+    if (/^https?:/.test(url)) wc.loadURL(url);
     return { action: 'deny' };
   });
-  v.webContents.setAudioMuted(true);
+  wc.setAudioMuted(true);
+}
+/** Trình duyệt HIỆN trong khung của trang Tài khoản (đăng nhập). */
+function taoView(tk) {
+  const v = new WebContentsView({ webPreferences: WEB_PREFS(tk) });
+  ganWc(v.webContents);
   return v;
+}
+/**
+ * Trang chạy ngầm = một CỬA SỔ ẨN riêng (show:false), KHÔNG phải WebContentsView ẩn.
+ * Đo 10/10/2026: WebContentsView setVisible(false) (hoặc đặt ngoài khung) → document.visibilityState
+ * = 'hidden', requestAnimationFrame dừng → Muse KHÔNG nạp ô soạn tin, không bao giờ có nút Send.
+ * Cửa sổ show:false + backgroundThrottling:false thì trang luôn 'visible' và chạy bình thường,
+ * kể cả sau show()/hide() và khi cửa sổ chính thu nhỏ.
+ */
+function taoCuaSoAn(tk, tieuDe) {
+  const w = new BrowserWindow({
+    show: false, width: 1280, height: 800, skipTaskbar: !xemLuong, title: tieuDe,
+    icon: path.join(__dirname, 'icons', process.platform === 'win32' ? 'icon.ico' : 'icon256.png'),
+    autoHideMenuBar: true, webPreferences: WEB_PREFS(tk)
+  });
+  ganWc(w.webContents);
+  // Người dùng bấm X khi đang xem luồng → chỉ ẩn, luồng vẫn chạy.
+  w.on('close', (e) => { if (!appDangThoat && !w.__huy) { e.preventDefault(); w.hide(); } });
+  return w;
+}
+function dongCuaSoAn(w) {
+  if (!w || w.isDestroyed()) return;
+  w.__huy = true;
+  w.destroy();
 }
 
 // ── Luồng chạy ngầm ───────────────────────────────────────────────────────
@@ -91,22 +117,19 @@ const viewCuaLuong = new Map();
 let xemLuong = !!process.env.MUSE_SHOW_LANES;
 
 function taoLuong(tk, stt) {
-  const v = taoView(tk);
-  win.contentView.addChildView(v);
-  // GIỮ kích thước thật (không thu về 0×0): trang ẩn kích thước 0 có thể không vẽ ảnh.
-  v.setBounds({ x: 0, y: 0, width: 1280, height: 800 });
-  v.setVisible(xemLuong);
-  const l = new Luong({ id: `${tk.ten} · L${stt}`, taiKhoan: tk, wc: v.webContents, nguon: NGUON_TRANG, goc: GOC_MUSE, log });
-  viewCuaLuong.set(l, v);
+  const id = `${tk.ten} · L${stt}`;
+  // Giữ kích thước thật 1280×800 (không thu nhỏ): trang quá nhỏ có thể không vẽ ảnh.
+  const w = taoCuaSoAn(tk, `Muse · ${id}`);
+  if (xemLuong) w.showInactive();
+  const l = new Luong({ id, taiKhoan: tk, wc: w.webContents, nguon: NGUON_TRANG, goc: GOC_MUSE, log });
+  viewCuaLuong.set(l, w);
   return l;
 }
 
 function huyLuong(l) {
-  const v = viewCuaLuong.get(l);
+  const w = viewCuaLuong.get(l);
   viewCuaLuong.delete(l);
-  if (!v) return;
-  try { win.contentView.removeChildView(v); } catch (_) {}
-  try { v.webContents.close(); } catch (_) {}
+  dongCuaSoAn(w);
 }
 
 // ── Đăng nhập: một trình duyệt hiện trong khung của trang Tài khoản ─────────
@@ -162,16 +185,12 @@ async function docTrangThai(wc, ms) {
 async function kiemTaiKhoan(id) {
   const tk = taiKhoan.tim(id);
   if (!tk) return null;
-  const v = taoView(tk);
-  win.contentView.addChildView(v);
-  v.setBounds({ x: 0, y: 0, width: 1280, height: 800 });
-  v.setVisible(false);
-  v.webContents.loadURL(GOC_MUSE).catch(() => {});
-  const tt = await docTrangThai(v.webContents, 25000);
+  const w = taoCuaSoAn(tk, 'Muse · kiểm tài khoản');
+  w.webContents.loadURL(GOC_MUSE).catch(() => {});
+  const tt = await docTrangThai(w.webContents, 25000);
   const kq = tt && tt.coONhap ? 'da-dang-nhap' : tt && tt.canDangNhap ? 'can-dang-nhap' : 'chua-kiem';
   taiKhoan.sua(id, { trangThai: kq });
-  try { win.contentView.removeChildView(v); } catch (_) {}
-  try { v.webContents.close(); } catch (_) {}
+  dongCuaSoAn(w);
   log(kq === 'da-dang-nhap' ? 'success' : 'warning',
     `👤 "${tk.ten}": ${kq === 'da-dang-nhap' ? 'đã đăng nhập Muse' : kq === 'can-dang-nhap' ? 'CHƯA đăng nhập' : 'không kiểm được (mạng?)'}`);
   baoTrangThai();
@@ -249,7 +268,11 @@ const LENH = {
   dongDangNhap: () => dongDangNhap(true),
   xemLuong: ({ bat }) => {
     xemLuong = !!bat;
-    for (const v of viewCuaLuong.values()) v.setVisible(xemLuong);
+    for (const w of viewCuaLuong.values()) {
+      if (w.isDestroyed()) continue;
+      w.setSkipTaskbar(!xemLuong);
+      if (xemLuong) w.showInactive(); else w.hide();
+    }
   },
 
   chonAnh: async () => {
@@ -322,7 +345,8 @@ function taoCuaSo() {
   });
   win.loadFile(path.join(__dirname, 'src/ui/index.html'));
   win.webContents.on('did-finish-load', () => baoTrangThai());
-  win.on('closed', () => { win = null; });
+  // Đóng cửa sổ chính = thoát app (các cửa sổ luồng ẩn không được giữ app sống).
+  win.on('closed', () => { win = null; app.quit(); });
 }
 
 app.whenReady().then(() => {
@@ -356,8 +380,10 @@ app.whenReady().then(() => {
   if (process.env.MUSE_TEST) require(path.resolve(process.env.MUSE_TEST))({ win, app, LENH, dieuPhoi, taiKhoan, nhatKy });
 });
 
-let dangThoat = false;
+let dangThoat = false;       // đang cài bản mới lúc thoát
+let appDangThoat = false;    // app đang thoát → cửa sổ luồng được đóng thật (không chỉ ẩn)
 app.on('before-quit', (e) => {
+  appDangThoat = true;
   if (dangThoat) return;
   if (capNhat && capNhat.nenCaiKhiThoat()) {
     e.preventDefault();

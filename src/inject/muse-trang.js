@@ -65,18 +65,33 @@
 
   /** Chữ Muse đang báo lỗi trên trang (toast, alert) — để nhật ký nói được VÌ SAO. */
   function chuLoiTrenTrang() {
+    // Muse có cả <svg role="status"> (vòng quay "Loading"): SVG KHÔNG có innerText/offsetParent →
+    // phải lọc theo kiểu phần tử, nếu không .trim() trên undefined làm hỏng cả bước gửi/kiểm.
     return $$('[role="alert"],[role="status"],[data-sonner-toast]')
-      .filter((e) => e.offsetParent !== null && !e.closest('[role="log"]'))
-      .map((e) => e.innerText.trim()).filter(Boolean).join(' | ').slice(0, 300);
+      .filter((e) => e instanceof HTMLElement && e.offsetParent !== null && !e.closest('[role="log"]'))
+      .map((e) => String(e.innerText || '').trim()).filter(Boolean).join(' | ').slice(0, 300);
   }
 
   /**
    * Gửi một prompt (kèm ảnh nếu có) vào chat đang mở.
    * @param {{text:string, files:{ten,mime,b64}[]}} p
    */
+  /** Ô soạn tin đã được React "nạp" chưa. Muse hiện sẵn một ô nhập tạm
+   *  (data-hatch-composer-prehydration-input) trước khi nạp; điền chữ vào ô tạm thì nút Send
+   *  không bao giờ xuất hiện. Trang bị ẩn (visibilityState hidden) thì Muse không nạp. */
+  const daNap = (ta) => !!ta && Object.keys(ta).some((k) => k.startsWith('__react'));
+
   async function gui(p) {
-    const ta = await cho(oNhap, 25000);
+    let ta = await cho(oNhap, 25000);
     if (!ta) return { ok: false, loi: canDangNhap() ? 'can-dang-nhap' : 'khong-thay-o-nhap' };
+    ta = await cho(() => { const t = oNhap(); return daNap(t) ? t : null; }, 30000);
+    if (!ta) {
+      // Trang ẩn thì chắc chắn không nạp → báo ngay. Trang đang hiện mà không thấy dấu nạp
+      // (Muse đổi cách làm) → vẫn thử đường cũ: điền rồi chờ nút Gửi.
+      if (document.visibilityState === 'hidden') return { ok: false, loi: 'o-soan-tin-chua-nap', chu: 'trang đang bị ẩn' };
+      ta = oNhap();
+      if (!ta) return { ok: false, loi: 'khong-thay-o-nhap' };
+    }
 
     const files = (p.files || []);
     if (files.length) {

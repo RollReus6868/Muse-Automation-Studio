@@ -334,11 +334,28 @@ test('trình viewer: mở thì luôn đóng (finally), kể cả khi không lấ
   assert.ok(/moXem = x\.daMo/.test(than), 'đánh dấu đã mở theo daMo, không theo việc có ảnh');
   assert.ok(/finally \{\s*if \(moXem\) \{ dongTrinhXem\(\)/.test(than));
 });
-test('luồng chạy ngầm giữ kích thước thật (không thu 0×0)', () => {
+test('luồng chạy ngầm là CỬA SỔ ẨN (trang luôn visible), không phải WebContentsView ẩn; giữ 1280×800', () => {
   const m = docNguon('main.js');
-  const than = m.slice(m.indexOf('function taoLuong('), m.indexOf('function huyLuong('));
-  assert.ok(/width: 1280, height: 800/.test(than));
-  assert.ok(!/width: 0/.test(than));
+  const luong = m.slice(m.indexOf('function taoLuong('), m.indexOf('function huyLuong('));
+  const an = m.slice(m.indexOf('function taoCuaSoAn('), m.indexOf('function dongCuaSoAn('));
+  assert.ok(/taoCuaSoAn\(/.test(luong), 'taoLuong dùng taoCuaSoAn');
+  assert.ok(!/WebContentsView|setVisible\(/.test(luong), 'không dùng view ẩn — Muse không nạp ô soạn tin');
+  assert.ok(/new BrowserWindow\(/.test(an) && /show: false/.test(an) && /width: 1280, height: 800/.test(an));
+  assert.ok(/backgroundThrottling: false/.test(m.slice(m.indexOf('const WEB_PREFS'), m.indexOf('function ganWc('))));
+  const kiem = m.slice(m.indexOf('async function kiemTaiKhoan('), m.indexOf('// ── File'));
+  assert.ok(/taoCuaSoAn\(/.test(kiem) && !/setVisible\(false\)/.test(kiem));
+});
+test('cửa sổ luồng chỉ ẩn khi bấm X, nhưng đóng thật khi app thoát', () => {
+  const m = docNguon('main.js');
+  assert.ok(/w\.on\('close', \(e\) => \{ if \(!appDangThoat && !w\.__huy\)/.test(m));
+  assert.ok(/app\.on\('before-quit', \(e\) => \{\s*appDangThoat = true;/.test(m));
+});
+test('trình trợ giúp: chờ ô soạn tin được nạp trước khi điền; đọc chữ lỗi bỏ qua SVG', () => {
+  const s = docNguon('src/inject/muse-trang.js');
+  const gui = s.slice(s.indexOf('async function gui('), s.indexOf('function anhDaNap('));
+  assert.ok(gui.indexOf('daNap(t)') > 0 && gui.indexOf('daNap(t)') < gui.indexOf('datGiaTri.call'), 'chờ nạp TRƯỚC khi điền');
+  const loi = s.slice(s.indexOf('function chuLoiTrenTrang('), s.indexOf('const daNap'));
+  assert.ok(/instanceof HTMLElement/.test(loi) && /String\(e\.innerText \|\| ''\)/.test(loi));
 });
 test('userData đặt TRƯỚC whenReady', () => {
   const m = docNguon('main.js');

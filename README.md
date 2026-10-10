@@ -66,6 +66,13 @@ Phát hành: tăng `version` trong `package.json`, ghi `GHI_CHU_BAN_MOI.md` (nh�
 
 ## Lịch sử
 
+### 1.2.1 (10/10/2026) — không gửi được prompt trên muse.ai thật
+- Triệu chứng: mọi việc đứng "Đang gửi prompt" rồi "Lỗi luồng: Cannot read properties of undefined (reading 'trim')".
+- Nguyên nhân gốc: luồng chạy là `WebContentsView` đặt `setVisible(false)` → `document.visibilityState = 'hidden'`, `requestAnimationFrame` dừng → Muse không "nạp" ô soạn tin (ô nhập tạm `data-hatch-composer-prehydration-input` không bao giờ được React gắn), nút Send không xuất hiện. Đo trong Electron: view ẩn → hidden/rAF 1 khung; `BrowserWindow({show:false, backgroundThrottling:false})` → visible/rAF chạy, kể cả sau show/hide và khi cửa sổ chính thu nhỏ. Nay mỗi luồng là một cửa sổ ẩn riêng.
+- Dòng lỗi khó hiểu: `chuLoiTrenTrang()` gọi `.innerText.trim()` trên `<svg role="status">` (vòng quay Loading của Muse) — SVG không có innerText.
+- Vì sao trước không bắt được: lúc thử tay trên muse.ai thì khung trình duyệt đang hiện; trang Muse giả gắn nút Send ngay không cần trang hiện. Nay trang giả chỉ gắn ô soạn tin trong `requestAnimationFrame` và có sẵn `<svg role="status">` — bản cũ chạy trên nó là đỏ toàn bộ (đã thử), bản mới xanh; CI chạy bài này trên Windows và macOS thật.
+- Trình trợ giúp chờ ô soạn tin được nạp (dấu `__react…`) TRƯỚC khi điền prompt; trang ẩn → báo lỗi ngay sau 30 giây thay vì chờ nút Send 60 giây.
+
 ### 1.2.0 (10/10/2026)
 - Nhập nhiều file .txt → mỗi file một dự án (tên theo tên file) và tự chạy. Tải về & tên file chuyển vào Cài đặt nâng cao của từng trang Tạo ảnh / Tạo video. Bỏ ký tự BOM khi nhập file .txt của Notepad.
 
