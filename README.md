@@ -10,7 +10,7 @@ App desktop (Windows / macOS) tự động tạo **ảnh và video hàng loạt 
 2. **Tài khoản** → *Đăng nhập* → đăng nhập muse.ai trong khung bên phải → *Xong, đóng lại*. Muốn chạy nhiều tài khoản thì *Thêm tài khoản* rồi đăng nhập từng tài khoản.
 3. **Tạo ảnh / Tạo video** → dán prompt (mỗi dòng một prompt) → chọn tỷ lệ → **Tạo & chạy**.
 
-Kết quả mặc định lưu ở `Tài liệu/Muse Automation Studio/<Dự_án>/<Dự_án>_001.png`; thư mục và tên file của ảnh, video đổi riêng được trong *Cài đặt → Tải về & tên file*.
+Kết quả mặc định lưu ở `Tài liệu/Muse Automation Studio/<Dự_án>/<Dự_án>_001.png`; thư mục và tên file của ảnh, video đổi riêng được trong *Cài đặt nâng cao* của trang Tạo ảnh / Tạo video.
 
 ## Tính năng
 
@@ -23,7 +23,8 @@ Kết quả mặc định lưu ở `Tài liệu/Muse Automation Studio/<Dự_án
 | Nhân vật | Lưu ảnh nhân vật kèm tên; prompt nhắc tên là tự gửi kèm ảnh (*Giữ nguyên nhân vật*), hoặc chế độ *Người mẫu* gắn vào mọi prompt |
 | Ảnh → video | *⋮ → Tạo video từ ảnh này*; hoặc bật **Ảnh xong → tự tạo video** để cả mẻ ảnh tự sinh video (chung một prompt video) |
 | Chạy một đoạn | *Cài đặt nâng cao → Chạy từ prompt số … đến số …* |
-| Tải về & tên file | Thư mục riêng cho ảnh / video, công tắc tải về riêng, mẫu tên `{duAn}` `{so}` `{stt}` `{prompt}` `{ngay}` `{loai}`; trùng tên tự thêm (2), không ghi đè |
+| Nhiều file .txt | *Nhập nhiều file .txt*: mỗi file thành một dự án mang tên file và tự vào hàng đợi |
+| Tải về & tên file | Trong *Cài đặt nâng cao* của trang Tạo ảnh / Tạo video: thư mục riêng cho ảnh / video, công tắc tải về riêng, mẫu tên `{duAn}` `{so}` `{stt}` `{prompt}` `{ngay}` `{loai}`; trùng tên tự thêm (2), không ghi đè |
 | Chỉnh sửa ảnh | *Chỉnh sửa* ở ảnh đã xong: gửi ảnh + yêu cầu sửa thành việc mới |
 | Dừng không mất lượt | Dừng giữa chừng hay tắt app, lần chạy sau mở lại đúng chat cũ để lấy kết quả, **không gửi lại prompt** |
 | Muse hỏi lại | Muse trả lời chữ thay vì ảnh thì dòng đó báo *Lỗi* kèm câu Muse nói; sửa prompt rồi *Tạo lại* |
@@ -64,6 +65,9 @@ Biến môi trường cho kiểm thử: `MUSE_URL` (địa chỉ Muse giả), `M
 Phát hành: tăng `version` trong `package.json`, ghi `GHI_CHU_BAN_MOI.md` (nhắc số phiên bản), push, rồi *Actions → Phat hanh ban moi → Run workflow*. Repo phải để **public** thì app mới tự cập nhật được.
 
 ## Lịch sử
+
+### 1.2.0 (10/10/2026)
+- Nhập nhiều file .txt → mỗi file một dự án (tên theo tên file) và tự chạy. Tải về & tên file chuyển vào Cài đặt nâng cao của từng trang Tạo ảnh / Tạo video. Bỏ ký tự BOM khi nhập file .txt của Notepad.
 
 ### 1.1.0 (10/10/2026)
 - Ảnh xong → tự tạo video (chung prompt video, cùng `{stt}` với ảnh). Chạy từ prompt số … đến số …. Thư mục, công tắc tải về và mẫu tên file riêng cho ảnh/video. Nút nhập .txt dưới ô Prompt. Số luồng chỉnh ngay trong cột Tạo, tối đa 20.

@@ -167,6 +167,7 @@
     $('#batChuoi').checked = U.chuoi.bat;
     $('#khuPromptVideo').hidden = !U.chuoi.bat;
     if (document.activeElement !== $('#luongNhanh')) $('#luongNhanh').value = S.caiDat.luongMoiTK;
+    veTaiVe();
     $('#tachPrompt').value = S.caiDat.tachPrompt;
     for (const b of $$('#cheDo button')) b.classList.toggle('on', b.dataset.v === U.cheDo);
     $('#khuNguoiMau').hidden = U.cheDo !== 'nguoimau';
@@ -378,32 +379,77 @@
   }
 
   // ── Tạo việc ─────────────────────────────────────────────────────────────
-  async function taoViec(chay) {
+  /**
+   * Mọi tuỳ chọn của cột Tạo (trừ danh sách prompt và dự án) — dùng chung cho "Tạo & chạy"
+   * và "Nhập nhiều file .txt". hoiLech: hỏi khi số ảnh trong thư mục lệch số prompt.
+   * Trả null nếu người dùng huỷ hoặc thiếu thông tin.
+   */
+  async function thamSoTao(prompts, hoiLech) {
     const loai = loaiTrang();
-    const prompts = HD.tachPrompt($('#oPrompt').value, $('#tachPrompt').value);
-    if (!prompts.length) { toast('Chưa có prompt nào', true); $('#oPrompt').focus(); return; }
     let chuoi = null;
     if (loai === 'anh' && U.chuoi.bat) {
-      if (!U.chuoi.prompt.trim()) { toast('Đang bật "Ảnh xong → tự tạo video" nhưng chưa nhập prompt video', true); $('#promptVideoChung').focus(); return; }
+      if (!U.chuoi.prompt.trim()) { toast('Đang bật "Ảnh xong → tự tạo video" nhưng chưa nhập prompt video', true); $('#promptVideoChung').focus(); return null; }
       chuoi = { prompt: U.chuoi.prompt, tyLe: U.chuoi.tyLe };
     }
     let theoDong = null;
     if (TC().thuMuc) {
       const n = TC().thuMuc.anh.length;
-      if (n !== prompts.length && !(await xacNhan('Số ảnh và số prompt lệch nhau',
-        `Thư mục có <b>${n}</b> ảnh nhưng có <b>${prompts.length}</b> prompt. Ảnh được gán lần lượt theo thứ tự; ${n < prompts.length ? 'prompt thừa sẽ không có ảnh' : 'ảnh thừa bị bỏ qua'}.`, 'Vẫn tạo'))) return;
+      if (hoiLech && n !== prompts.length && !(await xacNhan('Số ảnh và số prompt lệch nhau',
+        `Thư mục có <b>${n}</b> ảnh nhưng có <b>${prompts.length}</b> prompt. Ảnh được gán lần lượt theo thứ tự; ${n < prompts.length ? 'prompt thừa sẽ không có ảnh' : 'ảnh thừa bị bỏ qua'}.`, 'Vẫn tạo'))) return null;
       theoDong = prompts.map((_, i) => (TC().thuMuc.anh[i] ? [TC().thuMuc.anh[i]] : []));
     }
-    const r = await api.call('them', {
-      duAn: U.duAn, loai, prompts, tyLe: U.tyLe[loai], thamChieu: TC().ds, thamChieuTheoDong: theoDong,
+    return {
+      loai, tyLe: U.tyLe[loai], thamChieu: TC().ds, thamChieuTheoDong: theoDong,
       nhanVatIds: U.cheDo === 'nguoimau' ? [...U.nvChon] : [], tuNhanVat: $('#tuNhanVat').checked,
       soBan: $('#soBan').value, hauTo: $('#hauTo').value, tuSo: $('#tuSo').value, denSo: $('#denSo').value,
-      chuoiVideo: chuoi, chay
-    });
+      chuoiVideo: chuoi
+    };
+  }
+
+  async function taoViec(chay) {
+    const loai = loaiTrang();
+    const prompts = HD.tachPrompt($('#oPrompt').value, $('#tachPrompt').value);
+    if (!prompts.length) { toast('Chưa có prompt nào', true); $('#oPrompt').focus(); return; }
+    const ts = await thamSoTao(prompts, true);
+    if (!ts) return;
+    const r = await api.call('them', { ...ts, duAn: U.duAn, prompts, chay });
     if (!r || !r.ok) { toast((r && r.loi) || 'Không thêm được', true); return; }
     $('#oPrompt').value = ''; U.nhap[loai] = ''; luuUi();
     U.loc = 'tat';
-    toast(`Đã thêm ${r.so} việc${chay ? ' và bắt đầu chạy' : ' vào hàng đợi'}${chuoi ? ' — ảnh xong sẽ tự tạo video' : ''}`);
+    toast(`Đã thêm ${r.so} việc${chay ? ' và bắt đầu chạy' : ' vào hàng đợi'}${ts.chuoiVideo ? ' — ảnh xong sẽ tự tạo video' : ''}`);
+  }
+
+  /** Nhiều file .txt → mỗi file một dự án (tên theo tên file), cùng tuỳ chọn cột Tạo, rồi chạy. */
+  async function nhapNhieuFile() {
+    const ds = ((await api.call('nhapNhieuFile')) || [])
+      .map((f) => ({ ...f, prompts: HD.tachPrompt(f.noiDung, $('#tachPrompt').value) }));
+    if (!ds.length) return;
+    const rong = ds.filter((f) => !f.prompts.length);
+    const dung = ds.filter((f) => f.prompts.length);
+    if (!dung.length) { toast('Các file chọn đều không có prompt nào', true); return; }
+    const k = (f) => HD.chonKhoang(f.prompts, $('#tuSo').value, $('#denSo').value).length;
+    const tong = dung.reduce((n, f) => n + k(f), 0);
+    const ok = await xacNhan(`Tạo ${dung.length} dự án mới?`,
+      `Mỗi file thành một dự án (tên theo tên file) với tuỳ chọn đang chọn ở cột ${loaiTrang() === 'video' ? 'Tạo video' : 'Tạo ảnh'}, tổng <b>${tong}</b> ${loaiTrang() === 'video' ? 'video' : 'ảnh'}:<br>` +
+      dung.map((f) => `• <b>${esc(f.ten)}</b> — ${k(f)} prompt`).join('<br>') +
+      (rong.length ? `<br><br>Bỏ qua (không có prompt): ${rong.map((f) => esc(f.ten)).join(', ')}` : ''), 'Tạo & chạy');
+    if (!ok) return;
+    const chung = await thamSoTao([], false);
+    if (!chung) return;
+    let dau = null, soViec = 0;
+    for (const f of dung) {
+      const d = await api.call('taoDuAn', { ten: f.ten });
+      if (!d || !d.id) continue;
+      dau = dau || d.id;
+      const theoDong = TC().thuMuc ? f.prompts.map((_, i) => (TC().thuMuc.anh[i] ? [TC().thuMuc.anh[i]] : [])) : null;
+      const r = await api.call('them', { ...chung, thamChieuTheoDong: theoDong, duAn: d.id, prompts: f.prompts, chay: false });
+      if (r && r.ok) soViec += r.so;
+      else toast(`"${f.ten}": ${(r && r.loi) || 'không thêm được'}`, true);
+    }
+    if (!soViec) return;
+    if (dau) { U.duAn = dau; U.chiTiet = null; U.chon.clear(); U.loc = 'tat'; luuUi(); }
+    await api.call('chay');
+    toast(`Đã tạo ${dung.length} dự án, ${soViec} việc và bắt đầu chạy`);
   }
 
   function themThamChieu(ds) {
@@ -516,10 +562,6 @@
   function veCaiDat() {
     if (!S) return;
     const c = S.caiDat;
-    $('#cdThuMucAnh').value = S.thuMuc.anh; $('#cdThuMucVideo').value = S.thuMuc.video;
-    $('#cdTaiAnh').checked = c.taiAnh; $('#cdTaiVideo').checked = c.taiVideo;
-    $('#cdTenAnh').value = c.tenAnh; $('#cdTenVideo').value = c.tenVideo;
-    viDuTen();
     $('#cdLuong').value = c.luongMoiTK; $('#cdNghi').value = c.nghiGiuaLanGui; $('#cdThuLai').value = c.tuThuLai;
     $('#cdChoAnh').value = c.choAnhGiay; $('#cdChoVideo').value = c.choVideoGiay; $('#cdChoChu').value = c.choChuGiay;
     $('#cdPng').checked = !!c.png;
@@ -528,10 +570,21 @@
   }
   /** Ví dụ tên file ngay dưới ô mẫu tên — thấy liền kết quả khi gõ. */
   function viDuTen() {
+    const loai = loaiTrang();
     const d = duAnHienTai() || { ten: 'Mặc định' };
-    const mau = { so: 83, stt: 5, prompt: 'Tranh truyện người que tối giản bố cục dọc', taoLuc: Date.now() };
-    $('#cdViDuAnh').textContent = 'Ví dụ: ' + HD.tenFile(d, { ...mau, loai: 'anh' }, 'image/png', 0, $('#cdTenAnh').value);
-    $('#cdViDuVideo').textContent = 'Ví dụ: ' + HD.tenFile(d, { ...mau, loai: 'video' }, 'video/mp4', 0, $('#cdTenVideo').value);
+    const mau = { so: 83, stt: 5, prompt: 'Tranh truyện người que tối giản bố cục dọc', taoLuc: Date.now(), loai };
+    $('#ncViDu').textContent = 'Ví dụ: ' + HD.tenFile(d, mau, loai === 'video' ? 'video/mp4' : 'image/png', 0, $('#ncTen').value);
+  }
+  /** Khối "Tải về & tên file" trong Cài đặt nâng cao: hiện đúng phần của trang đang mở (ảnh / video). */
+  function veTaiVe() {
+    const v = loaiTrang() === 'video', c = S.caiDat;
+    $('#ncNhanTai').textContent = v ? 'Tải video về' : 'Tải ảnh về';
+    $('#ncNhanThuMuc').textContent = v ? 'Thư mục lưu video' : 'Thư mục lưu ảnh';
+    $('#ncNhanTen').firstChild.textContent = v ? 'Tên file video' : 'Tên file ảnh';
+    $('#ncTai').checked = v ? c.taiVideo : c.taiAnh;
+    $('#ncThuMuc').value = S.thuMuc[loaiTrang()];
+    if (document.activeElement !== $('#ncTen')) $('#ncTen').value = v ? c.tenVideo : c.tenAnh;
+    viDuTen();
   }
   function veCapNhat() {
     const cn = S && S.capNhat;
@@ -608,6 +661,7 @@
       U.nhap[loaiTrang()] = o.value; luuUi(); veTao();
       toast(`Đã nhập ${HD.tachPrompt(t, $('#tachPrompt').value).length} prompt`);
     };
+    $('#nutNhapNhieu').onclick = nhapNhieuFile;
     $('#nutMenuDuAn').onclick = (e) => { e.stopPropagation(); const m = $('#menuDuAnThem'); const an = m.hidden; dongMenu(); m.hidden = !an; };
     $('#menuDuAnThem').onclick = async (e) => {
       const b = e.target.closest('[data-lenh]');
@@ -784,13 +838,13 @@
     window.addEventListener('resize', baoKhung);
 
     // Cài đặt
-    $('#trang-caidat').addEventListener('click', async (e) => {
-      const c = e.target.closest('[data-chon-thu-muc]'), m = e.target.closest('[data-mo-thu-muc]');
-      if (c) { const d = await api.call('chonThuMucRa', { loai: c.dataset.chonThuMuc }); if (d) $(c.dataset.chonThuMuc === 'video' ? '#cdThuMucVideo' : '#cdThuMucAnh').value = d; }
-      if (m) api.call('moThuMuc', { dir: S.thuMuc[m.dataset.moThuMuc] });
-    });
-    $('#cdTenAnh').addEventListener('input', viDuTen);
-    $('#cdTenVideo').addEventListener('input', viDuTen);
+    // Tải về & tên file (Cài đặt nâng cao của cột Tạo) — lưu ngay, theo trang ảnh / video.
+    const khoaTai = () => (loaiTrang() === 'video' ? { tai: 'taiVideo', ten: 'tenVideo' } : { tai: 'taiAnh', ten: 'tenAnh' });
+    $('#ncTai').onchange = (e) => api.call('datCaiDat', { [khoaTai().tai]: e.target.checked });
+    $('#ncTen').addEventListener('input', viDuTen);
+    $('#ncTen').onchange = (e) => { api.call('datCaiDat', { [khoaTai().ten]: e.target.value }); toast('Đã lưu mẫu tên file'); };
+    $('#ncChonThuMuc').onclick = async () => { const d = await api.call('chonThuMucRa', { loai: loaiTrang() }); if (d) $('#ncThuMuc').value = d; };
+    $('#ncMoThuMuc').onclick = () => api.call('moThuMuc', { dir: S.thuMuc[loaiTrang()] });
     $('#cdMoDuLieu').onclick = () => api.call('moThuMucDuLieu');
     $('#cdKiemCapNhat').onclick = () => api.call('kiemCapNhat');
     $('#cdXemLuong').onchange = (e) => api.call('xemLuong', { bat: e.target.checked });
@@ -799,8 +853,7 @@
       await api.call('datCaiDat', {
         luongMoiTK: $('#cdLuong').value, nghiGiuaLanGui: $('#cdNghi').value, tuThuLai: $('#cdThuLai').value,
         choAnhGiay: $('#cdChoAnh').value, choVideoGiay: $('#cdChoVideo').value, choChuGiay: $('#cdChoChu').value,
-        png: $('#cdPng').checked, mau: { anh: $('#cdMauAnh').value, video: $('#cdMauVideo').value },
-        taiAnh: $('#cdTaiAnh').checked, taiVideo: $('#cdTaiVideo').checked, tenAnh: $('#cdTenAnh').value, tenVideo: $('#cdTenVideo').value
+        png: $('#cdPng').checked, mau: { anh: $('#cdMauAnh').value, video: $('#cdMauVideo').value }
       });
       veCaiDat();
       toast('Đã lưu cài đặt');

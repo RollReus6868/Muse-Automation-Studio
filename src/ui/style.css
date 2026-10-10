@@ -146,8 +146,11 @@ select option { background: var(--panel-dac); }
 .khoi-chuoi textarea { margin-top: 10px; font-size: 13px; resize: vertical; }
 .o-chon.nho { margin-top: 8px; font-size: 12.5px; }
 .o-chon.nho select { width: 130px; }
-.tai-ve { gap: 22px; }
-.tai-ve > div > label { margin-top: 10px; }
+.nhom-tai { margin: 12px 0 12px; padding-top: 12px; border-top: 1px solid var(--vien); }
+.nhom-tai .dong-cong-tac { margin-top: 0; margin-bottom: 10px; }
+.nhom-tai .dong-o { margin: 5px 0 10px; }
+.nhom-tai small.mo { display: block; margin-bottom: 6px; }
+.nhom-tai code { font-size: 11px; padding: 0 4px; }
 .tha-anh { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 16px 10px; border: 1.5px dashed var(--vien-dam);
   border-radius: 12px; text-align: center; font-size: 13px; color: var(--chu-phu); transition: .15s; }
 .tha-anh i { width: 22px; height: 22px; }

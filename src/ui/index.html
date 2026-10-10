@@ -72,7 +72,8 @@
             <div class="dem" id="demPrompt">0 prompt · 0 ký tự</div>
           </div>
           <div class="duoi-prompt">
-            <button class="nut-vien nho" id="nutNhapPrompt"><i data-icon="file-text"></i>Nhập prompt từ file .txt</button>
+            <button class="nut-vien nho" id="nutNhapPrompt"><i data-icon="file-text"></i>Nhập file .txt</button>
+            <button class="nut-vien nho" id="nutNhapNhieu" title="Chọn nhiều file .txt: mỗi file thành một dự án (tên theo tên file) và tự vào hàng đợi"><i data-icon="folder-open"></i>Nhập nhiều file .txt</button>
             <span class="mo" id="ghiKhoang"></span>
           </div>
 
@@ -132,6 +133,15 @@
             <label>Thêm vào cuối mỗi prompt<input type="text" id="hauTo" placeholder="vd: phong cách điện ảnh, ánh sáng mềm"></label>
             <label>Số luồng mỗi tài khoản <small>(áp dụng ngay, cả khi đang chạy)</small><input type="number" id="luongNhanh" min="1" max="20"></label>
             <small class="mo">Ảnh trong "chọn thư mục" được gán lần lượt: ảnh 1 → prompt 1, ảnh 2 → prompt 2… (xếp theo tên).</small>
+
+            <div class="nhom-tai">
+              <div class="dong-cong-tac"><div><b id="ncNhanTai">Tải ảnh về</b><small>Tắt: chỉ giữ trong app (vẫn xem, vẫn làm video được).</small></div><label class="cong-tac"><input type="checkbox" id="ncTai"><span></span></label></div>
+              <label id="ncNhanThuMuc">Thư mục lưu ảnh</label>
+              <div class="dong-o"><input id="ncThuMuc" readonly><button class="nut-vien nho" id="ncChonThuMuc">Đổi…</button><button class="nut-vien nho" id="ncMoThuMuc">Mở</button></div>
+              <label id="ncNhanTen">Tên file ảnh<input id="ncTen" placeholder="{duAn}/{duAn}_{so}"></label>
+              <small class="mo" id="ncViDu"></small>
+              <small class="mo">Ký hiệu: <code>{duAn}</code> tên dự án · <code>{so}</code> số trong hàng đợi · <code>{stt}</code> dòng prompt thứ mấy · <code>{prompt}</code> vài chữ đầu · <code>{ngay}</code> ngày · <code>{loai}</code> anh/video. <code>/</code> = thư mục con. Trùng tên tự thêm (2), không ghi đè.</small>
+            </div>
           </details>
         </div>
         <div class="chan-nut">
@@ -231,7 +241,8 @@
           <li><b>Ảnh → video:</b> ở một ảnh đã xong, bấm <i>⋮ → Tạo video từ ảnh này</i>. Muốn cả mẻ: bật <i>Ảnh xong → tự tạo video</i> ở cột Tạo ảnh và nhập một prompt video dùng chung — ảnh nào xong là tự có video tương ứng.</li>
           <li><b>Chạy một đoạn:</b> <i>Cài đặt nâng cao → Chạy từ prompt số … đến số …</i>. Đặt tên file bằng <code>{stt}</code> để số trong tên khớp số dòng prompt.</li>
           <li><b>Nhiều luồng hơn:</b> tăng <i>Số luồng mỗi tài khoản</i> (Cài đặt nâng cao), không cần tạo thêm dự án. Muốn nhiều hơn nữa thì thêm tài khoản — mọi tài khoản đang bật chạy cùng lúc.</li>
-          <li><b>Kết quả</b> lưu theo <i>Cài đặt → Tải về &amp; tên file</i>: thư mục, công tắc tải về và mẫu tên riêng cho ảnh và video (mặc định <code>Mac_dinh/Mac_dinh_001.png</code>).</li>
+          <li><b>Kết quả</b>: thư mục lưu, công tắc tải về và mẫu tên file nằm trong <i>Cài đặt nâng cao</i> của từng trang Tạo ảnh / Tạo video (mặc định <code>Mac_dinh/Mac_dinh_001.png</code>).</li>
+          <li><b>Nhiều file .txt:</b> bấm <i>Nhập nhiều file .txt</i>, chọn cả loạt — mỗi file thành một dự án mang tên file, dùng chung tuỳ chọn đang chọn ở cột Tạo, rồi tự chạy.</li>
           <li><b>Dừng giữa chừng</b> không mất lượt: chạy lại, tool mở lại đúng chat cũ để lấy kết quả chứ không gửi lại prompt.</li>
           <li><b>Muse trả lời chữ thay vì ảnh</b> (hỏi lại, từ chối): dòng đó báo lỗi kèm câu Muse nói. Sửa prompt rồi bấm <i>Tạo lại</i>.</li>
           <li><b>Lỗi lạ:</b> Cài đặt → bật <i>Hiện các luồng chạy ngầm</i> để nhìn thấy trang Muse của từng luồng; nhật ký đầy đủ ở thư mục dữ liệu (<code>nhat-ky.txt</code>).</li>
@@ -243,26 +254,6 @@
     <main class="trang" id="trang-caidat" hidden>
       <section class="panel trang-don cuon">
         <div class="panel-dau"><h2><i data-icon="settings"></i>Cài đặt</h2><button class="nut-gradient nho" id="cdLuu"><i data-icon="check"></i>Lưu cài đặt</button></div>
-        <div class="the-cai">
-          <h3><i data-icon="download"></i>Tải về &amp; tên file</h3>
-          <div class="luoi-2 tai-ve">
-            <div>
-              <div class="dong-cong-tac"><div><b>Tải ảnh về</b><small>Tắt: ảnh chỉ giữ trong app (vẫn xem, vẫn làm video được).</small></div><label class="cong-tac"><input type="checkbox" id="cdTaiAnh"><span></span></label></div>
-              <label>Thư mục ảnh</label>
-              <div class="dong-o"><input id="cdThuMucAnh" readonly><button class="nut-vien" data-chon-thu-muc="anh">Đổi…</button><button class="nut-vien" data-mo-thu-muc="anh">Mở</button></div>
-              <label>Tên file ảnh<input id="cdTenAnh" placeholder="{duAn}/{duAn}_{so}"></label>
-              <small class="mo" id="cdViDuAnh"></small>
-            </div>
-            <div>
-              <div class="dong-cong-tac"><div><b>Tải video về</b><small>Tắt: video chỉ giữ trong app.</small></div><label class="cong-tac"><input type="checkbox" id="cdTaiVideo"><span></span></label></div>
-              <label>Thư mục video</label>
-              <div class="dong-o"><input id="cdThuMucVideo" readonly><button class="nut-vien" data-chon-thu-muc="video">Đổi…</button><button class="nut-vien" data-mo-thu-muc="video">Mở</button></div>
-              <label>Tên file video<input id="cdTenVideo" placeholder="{duAn}/{duAn}_{so}"></label>
-              <small class="mo" id="cdViDuVideo"></small>
-            </div>
-          </div>
-          <small class="mo">Ký hiệu trong tên: <code>{duAn}</code> tên dự án · <code>{so}</code> số trong hàng đợi · <code>{stt}</code> số thứ tự prompt (dòng thứ mấy) · <code>{prompt}</code> vài chữ đầu prompt · <code>{ngay}</code> ngày tạo · <code>{loai}</code> anh/video. Dấu <code>/</code> tạo thư mục con. Trùng tên thì tự thêm (2), (3), không ghi đè.</small>
-        </div>
         <div class="the-cai">
           <h3><i data-icon="sliders-horizontal"></i>Chạy</h3>
           <div class="luoi-3">

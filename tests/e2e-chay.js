@@ -180,6 +180,46 @@ module.exports = function e2e({ win, app, LENH, dieuPhoi }) {
       const gui4 = (await daGui()).slice(soGuiTruoc);
       kiem(gui4.filter((g) => /máy quay đẩy chậm/.test(g.prompt)).every((g) => g.soFile === 1 && /khung hình đầu/.test(g.prompt)), 'video gửi kèm đúng 1 ảnh làm khung đầu');
       kiem(gui4.filter((g) => /cảnh (hai|ba)/.test(g.prompt)).every((g) => g.soFile === 0), 'ảnh gắn ở trang video KHÔNG dính sang prompt ảnh');
+
+      // 5) 1.2.0: Tải về & tên file nằm trong Cài đặt nâng cao, theo trang; nhập nhiều file .txt.
+      ghi('-- 5. Tải về trong Cài đặt nâng cao + Nhập nhiều file .txt');
+      const tenO = () => js(`({ nhan: document.querySelector('#ncNhanTen').firstChild.textContent, ten: document.querySelector('#ncTen').value, vd: document.querySelector('#ncViDu').textContent })`);
+      const oAnh = await tenO();
+      await js(`window.__diToi('video')`); await ngu(300);
+      const oVid = await tenO();
+      kiem(oAnh.ten === '{duAn}/anh_{stt}' && oVid.ten === 'clip_{stt}' && /video/.test(oVid.nhan) && /clip_005\.mp4/.test(oVid.vd),
+        `ô tên file đổi theo trang (ảnh "${oAnh.ten}", video "${oVid.ten}", ${oVid.vd})`);
+      await js(`(() => { const o = document.querySelector('#ncTen'); o.value = 'vid_{stt}'; o.dispatchEvent(new Event('input')); o.dispatchEvent(new Event('change')); })()`);
+      await ngu(400);
+      kiem(dieuPhoi.caiDat.tenVideo === 'vid_{stt}' && dieuPhoi.caiDat.tenAnh === '{duAn}/anh_{stt}', 'sửa tên ở trang video chỉ đổi tên video');
+      await js(`window.__diToi('anh')`); await ngu(300);
+      // Tắt chuỗi video và khoảng prompt của bước 4.
+      await js(`(() => { const c = document.querySelector('#batChuoi'); c.checked = false; c.dispatchEvent(new Event('change'));
+        for (const id of ['#tuSo', '#denSo']) { const o = document.querySelector(id); o.value = ''; o.dispatchEvent(new Event('input')); } })()`);
+      LENH.nhapNhieuFile = async () => [
+        { ten: 'Tập 1', noiDung: 'tập một cảnh A\ntập một cảnh B' },
+        { ten: 'Tập 2', noiDung: '\uFEFFtập hai cảnh A' },
+        { ten: 'rỗng', noiDung: '  \n ' }
+      ];
+      const truoc5 = viec().length, duAnTruoc = dieuPhoi.duAn.length;
+      await js(`document.querySelector('#nutNhapNhieu').click()`);
+      await cho(() => true, 600, '');
+      const hop = await js(`({ mo: !document.querySelector('#phu').hidden, chu: document.querySelector('#hopNoiDung').innerText })`);
+      kiem(hop.mo && /Tập 1 — 2 prompt/.test(hop.chu) && /Tập 2 — 1 prompt/.test(hop.chu) && /Bỏ qua.*rỗng/.test(hop.chu), 'hộp xác nhận liệt kê từng file, bỏ qua file rỗng');
+      await chup('e2e-nhap-nhieu.png');
+      await js(`document.querySelector('#hopOk').click()`);
+      await cho(() => viec().length >= truoc5 + 3 && !dieuPhoi.dangChay && !dieuPhoi.coViecDangChay(), 90000, 'chạy xong 2 dự án mới');
+      const da = dieuPhoi.duAn.slice(duAnTruoc);
+      kiem(da.map((d) => d.ten).join('|') === 'Tập 1|Tập 2', `tạo đúng 2 dự án theo tên file (${da.map((d) => d.ten).join(', ')})`);
+      const m5 = viec().slice(truoc5);
+      for (const j of m5) ghi(`   #${j.so} ${j.duAn} ${j.trangThai} ${j.files.map((f) => path.relative(ra, f)).join(',')}`);
+      kiem(m5.length === 3 && m5.every((j) => j.trangThai === 'xong' && j.loai === 'anh'), 'mọi prompt của các file đều chạy xong');
+      kiem(m5.filter((j) => j.duAn === da[0].id).length === 2 && m5.filter((j) => j.duAn === da[1].id).length === 1, 'mỗi file vào đúng dự án của nó');
+      kiem(m5.map((j) => path.relative(ra, j.files[0]).replace(/\\/g, '/')).sort().join(',') === 'Tap_1/anh_001.png,Tap_1/anh_002.png,Tap_2/anh_001.png',
+        'file lưu theo dự án, không trùng tên giữa các file .txt');
+      kiem(!m5.some((j) => j.chuoi), 'tắt "tự tạo video" thì không nối video');
+      const ui5 = await js(`document.querySelector('#tenDuAn').textContent`);
+      kiem(/^Tập 1/.test(ui5), `chuyển sang dự án đầu tiên vừa tạo ("${ui5}")`);
     } catch (err) {
       ghi('LỖI KỊCH BẢN: ' + err.stack);
       loi.push('ngoại lệ');

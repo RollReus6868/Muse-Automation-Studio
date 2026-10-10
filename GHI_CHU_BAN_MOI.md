@@ -1,8 +1,5 @@
-# Muse Automation Studio 1.1.0
+# Muse Automation Studio 1.2.0
 
-- **Ảnh xong → tự tạo video**: bật ở cột Tạo ảnh, nhập một prompt video dùng chung; ảnh nào xong là tự thêm video dùng ảnh đó làm khung đầu.
-- **Chạy từ prompt số … đến số …** (Cài đặt nâng cao trong cột Tạo). Số thứ tự prompt được giữ để đặt tên file.
-- **Tải về & tên file** (Cài đặt): thư mục riêng cho ảnh và video, công tắc tải về riêng, mẫu tên file với `{duAn}` `{so}` `{stt}` `{prompt}` `{ngay}` `{loai}`. Trùng tên thì tự thêm (2), (3), không ghi đè.
-- Nút **Nhập prompt từ file .txt** chuyển xuống ngay dưới ô Prompt.
-- **Số luồng mỗi tài khoản** có thêm ở Cài đặt nâng cao trong cột Tạo, áp dụng ngay; tối đa 20.
-- Sửa: ảnh gắn ở trang Tạo video (qua "Tạo video từ ảnh này") không còn dính sang prompt ở trang Tạo ảnh.
+- **Nhập nhiều file .txt** (dưới ô Prompt): chọn cả loạt file, mỗi file thành một dự án mang tên file, dùng chung tuỳ chọn đang chọn ở cột Tạo, rồi tự vào hàng đợi và chạy. File rỗng tự bỏ qua.
+- **Tải về & tên file** chuyển vào *Cài đặt nâng cao* của từng trang: trang Tạo ảnh chỉnh thư mục / công tắc / tên file ảnh, trang Tạo video chỉnh của video. Có dòng ví dụ tên file ngay dưới ô.
+- Nhập file .txt lưu bằng Notepad (UTF-8 có BOM) không còn dính ký tự lạ ở đầu prompt đầu tiên.

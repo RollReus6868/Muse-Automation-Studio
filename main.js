@@ -270,7 +270,14 @@ const LENH = {
   },
   nhapPrompt: async () => {
     const r = await dialog.showOpenDialog(win, { properties: ['openFile'], filters: [{ name: 'Văn bản', extensions: ['txt', 'csv', 'md'] }] });
-    return r.canceled ? null : fs.readFileSync(r.filePaths[0], 'utf8');
+    return r.canceled ? null : fs.readFileSync(r.filePaths[0], 'utf8').replace(/^\uFEFF/, '');
+  },
+  nhapNhieuFile: async () => {
+    const r = await dialog.showOpenDialog(win, { properties: ['openFile', 'multiSelections'], filters: [{ name: 'Văn bản', extensions: ['txt', 'csv', 'md'] }] });
+    if (r.canceled) return [];
+    return r.filePaths.sort(hd.soSanhTuNhien).map((p) => ({
+      ten: path.basename(p).replace(/\.[^.]+$/, ''), noiDung: fs.readFileSync(p, 'utf8').replace(/^\uFEFF/, '')
+    }));
   },
   luuBanSao: async ({ file }) => {
     if (!file || !fs.existsSync(file)) return { ok: false, loi: 'File không còn' };
