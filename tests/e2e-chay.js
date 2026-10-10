@@ -41,6 +41,8 @@ module.exports = function e2e({ win, app, LENH, dieuPhoi }) {
       // Tài khoản 1 đã đăng nhập (cookie của trang giả), tài khoản 2 chưa.
       await session.fromPartition('persist:muse-tk-1').cookies.set({ url: process.env.MUSE_URL, name: 'muse_login', value: '1' });
       const tk2 = await LENH.themTaiKhoan({ ten: 'TK hai' });
+      // TK hai thấy Muse tiếng Việt: màn đăng nhập không có câu tiếng Anh nào → phải nhận ra qua ô email.
+      await session.fromPartition(tk2.partition).cookies.set({ url: process.env.MUSE_URL, name: 'muse_lang', value: 'vi' });
       const ra = path.join(tam, 'ra');
       LENH.datCaiDat({ luongMoiTK: 3, nghiGiuaLanGui: 0, choChuGiay: 15, tuThuLai: 0, tuChayLaiLoi: 0, thuMucAnh: ra, thuMucVideo: ra });
       const anhNV = path.join(tam, 'lan.png'), anhRef = path.join(tam, 'ref.png');
@@ -270,6 +272,7 @@ module.exports = function e2e({ win, app, LENH, dieuPhoi }) {
       await choJs(`!document.querySelector('#khuVideoThuMuc').hidden`, 5000, 'khối video từ thư mục');
       await js(`(() => { const o = document.querySelector('#oPrompt'); o.value = ''; o.dispatchEvent(new Event('input'));
         for (const id of ['#tuSo', '#denSo']) { const x = document.querySelector(id); x.value = ''; x.dispatchEvent(new Event('input')); }
+        const c = document.querySelector('#promptThuMuc'); c.value = 'chung cho thư mục lắc lư'; c.dispatchEvent(new Event('input'));
         document.querySelector('#nutVideoThuMuc').click(); })()`);
       await choJs(`/3 ảnh/.test(document.querySelector('#ghiVideoThuMuc').textContent)`, 5000, 'báo 3 ảnh');
       await chup('e2e-video-thu-muc.png');
@@ -278,7 +281,7 @@ module.exports = function e2e({ win, app, LENH, dieuPhoi }) {
       const v8 = viec().slice(truoc8);
       const g8 = (await daGui()).slice(gui8);
       kiem(v8.length === 3 && v8.every((j) => j.loai === 'video' && j.trangThai === 'xong'), 'thư mục 3 ảnh → 3 video xong');
-      kiem(g8.length === 3 && g8.every((g) => g.soFile === 1 && g.prompt.includes('chuyển động tự nhiên')), 'mỗi video gửi kèm đúng 1 ảnh, prompt mặc định khi để trống');
+      kiem(g8.length === 3 && g8.every((g) => g.soFile === 1 && g.prompt.includes('chung cho thư mục lắc lư')), 'mỗi video gửi kèm đúng 1 ảnh, dùng prompt ở ô "dùng chung"');
       kiem(v8.map((j) => path.relative(rv, j.files[0]).replace(/\\/g, '/')).join(',') === 'tu-anh/canh 1.mp4,tu-anh/canh 2.mp4,tu-anh/canh 10.mp4',
         `tên video = tên ảnh, theo thứ tự tự nhiên (${v8.map((j) => path.basename(j.files[0] || '?')).join(', ')})`);
 
@@ -302,6 +305,20 @@ module.exports = function e2e({ win, app, LENH, dieuPhoi }) {
       await js(`(() => { const c = document.querySelector('#chonHet'); c.checked = false; c.dispatchEvent(new Event('change')); })()`);
       await choJs(`document.querySelector('#thanhChon').hidden`, 5000, 'bỏ chọn hết');
       kiem(await js(`document.querySelectorAll('#dsHang [data-chon]:checked').length === 0`), 'bỏ "Tất cả" thì bỏ chọn hết');
+
+      // 11) Muse giao diện tiếng Việt (máy Mac tiếng Việt): vẫn nhận đăng nhập, gửi, đính kèm, mở ảnh.
+      ghi('-- 11. Muse tiếng Việt');
+      const tk1 = session.fromPartition('persist:muse-tk-1');
+      await tk1.cookies.set({ url: process.env.MUSE_URL, name: 'muse_lang', value: 'vi' });
+      kiem(await LENH.kiemTaiKhoan({ id: 'tk-1' }) === 'da-dang-nhap', 'Muse tiếng Việt: "Kiểm tra" báo đã đăng nhập');
+      const gui11 = (await daGui()).length, truoc11 = viec().length;
+      LENH.them({ duAn: 'mac-dinh', loai: 'anh', tyLe: '1:1', thamChieu: [anhRef], prompts: ['vi có ảnh kèm', 'LUOI vi ảnh lười'], chay: true });
+      await cho(() => !dieuPhoi.dangChay && !dieuPhoi.coViecDangChay(), 60000, 'chạy xong việc tiếng Việt');
+      const v11 = viec().slice(truoc11), g11 = (await daGui()).slice(gui11);
+      for (const j of v11) ghi(`   #${j.so} ${j.trangThai} ${j.loi || ''}`);
+      kiem(v11.length === 2 && v11.every((j) => j.trangThai === 'xong' && j.files.length), 'Muse tiếng Việt: 2 việc xong, có file (kể cả ảnh lười)');
+      kiem(g11.length === 2 && g11.every((g) => g.soFile === 1), 'Muse tiếng Việt: mỗi lần gửi kèm đúng 1 ảnh');
+      await tk1.cookies.remove(process.env.MUSE_URL, 'muse_lang');
     } catch (err) {
       ghi('LỖI KỊCH BẢN: ' + err.stack);
       loi.push('ngoại lệ');

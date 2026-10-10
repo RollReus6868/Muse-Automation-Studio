@@ -10,6 +10,8 @@
     LUOI     → khung ảnh không có <img>, phải bấm "Open generated image" mới thấy
     CHAM     → tạo mất 6 giây (mặc định 2 giây)
   Chưa có cookie muse_login=1 → hiện màn đăng nhập.
+  Cookie muse_lang=vi → giao diện tiếng Việt (như Muse trên máy Mac tiếng Việt). Vài nhãn CỐ Ý lạ
+  (nút gửi, nút gỡ tệp, màn đăng nhập) để kiểm đường dự phòng không cần đọc chữ của muse-trang.js.
   Mỗi lần gửi báo về máy chủ kiểm thử: POST /__gui {prompt, soFile, thread, t0}; mở chat: GET /__thread/<id>.
 -->
 <div id="goc"></div>
@@ -17,6 +19,10 @@
 const goc = document.getElementById('goc');
 const ngu = (ms) => new Promise((r) => setTimeout(r, ms));
 const daDangNhap = document.cookie.includes('muse_login=1');
+const VI = document.cookie.includes('muse_lang=vi');
+const L = VI
+  ? { o: 'Nhắn tin', gui: 'Đẩy đi', go: 'Hủy tệp', dangGo: 'Trợ lý đang nhập', mo: 'Mở ảnh đã tạo', dong: 'Đóng' }
+  : { o: 'Message', gui: 'Send', go: 'Remove attachment', dangGo: 'Assistant is typing', mo: 'Open generated image', dong: 'Close' };
 // Như Muse thật: chat lưu ở MÁY CHỦ (máy chủ kiểm thử), không ở trình duyệt.
 const docThread = async (id) => { try { return await (await fetch('/__thread/' + id)).json(); } catch (_) { return null; } };
 
@@ -27,7 +33,9 @@ function anhBlob(w, h, loai) {
 }
 
 function veDangNhap() {
-  goc.innerHTML = '<main><h1>Muse, AI that gets it done for you</h1><p>Log in or create an account</p><input placeholder="Mobile number or email"><button>Continue</button></main>';
+  goc.innerHTML = VI
+    ? '<main><h1>Muse, AI làm giúp bạn</h1><p>Chào mừng trở lại</p><input type="email" placeholder="Nhập để tiếp tục"><button>Tiếp tục</button></main>'
+    : '<main><h1>Muse, AI that gets it done for you</h1><p>Log in or create an account</p><input placeholder="Mobile number or email"><button>Continue</button></main>';
 }
 
 function veKhung(tinHtml) {
@@ -39,7 +47,7 @@ function veKhung(tinHtml) {
     <svg role="status" aria-label="Loading" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg>
     <form onsubmit="return false">
       <div id="dinhKem"></div>
-      <textarea aria-label="Message" placeholder="Message" data-hatch-composer-prehydration-input="true"></textarea>
+      <textarea aria-label="${L.o}" placeholder="${L.o}" data-hatch-composer-prehydration-input="true"></textarea>
       <button aria-label="Attach file" type="submit"></button><input type="file" multiple hidden>
       <span id="choNutGui"></span>
     </form>`;
@@ -49,16 +57,18 @@ function veKhung(tinHtml) {
     ta['__reactFiber$gia'] = {};           // dấu "đã hydrate" giống React
     const veNut = () => {
       const co = !!ta.value.trim();
-      const nut = document.querySelector('[aria-label=Send]');
+      const nut = document.querySelector('#choNutGui button');
       if (co && !nut) {
-        document.getElementById('choNutGui').innerHTML = '<button aria-label="Send" type="submit">↑</button>';
-        document.querySelector('[aria-label=Send]').addEventListener('click', () => guiTin(ta.value, inp.files ? inp.files.length : 0));
+        document.getElementById('choNutGui').innerHTML = `<button aria-label="${L.gui}" type="button">↑</button>`;
+        document.querySelector('#choNutGui button').addEventListener('click', () => guiTin(ta.value, inp.files ? inp.files.length : 0));
       } else if (!co && nut) nut.remove();
     };
     ta.addEventListener('input', veNut);
     veNut();
     inp.addEventListener('change', () => {
-      document.getElementById('dinhKem').innerHTML = Array.from(inp.files).map((f) => `<span>${f.name}<button aria-label="Remove attachment" type="button">x</button></span>`).join('');
+      document.getElementById('dinhKem').innerHTML = Array.from(inp.files).map((f) => VI
+        ? `<span><img src="${URL.createObjectURL(f)}" width="24"><button aria-label="${L.go}" type="button">x</button></span>`
+        : `<span>${f.name}<button aria-label="${L.go}" type="button">x</button></span>`).join('');
     });
   }));
 }
@@ -79,7 +89,7 @@ async function veThread(id) {
   const tre = /CHAM/.test(t.prompt) ? 6000 : 2000;
   const daQua = Date.now() - t.t0;
   if (daQua < tre) {
-    veKhung(user + '<div aria-label="Assistant is typing"><div></div><div></div><div></div></div>');
+    veKhung(user + `<div aria-label="${L.dangGo}"><div></div><div></div><div></div></div>`);
     henVe = setTimeout(() => veThread(id), tre - daQua + 50);
     return;
   }
@@ -105,12 +115,12 @@ async function veThread(id) {
   const luoi = /LUOI/.test(t.prompt);
   veKhung(user + chu + `<div data-message-item="true" data-message-role="assistant"><div aria-busy="false">
     <div data-testid="hatch-chat-attachment-presentation-image">${luoi ? '' : `<img src="${url}">`}</div>
-    <button aria-label="Open generated image ${luoi ? 'ảnh lười' : 'ảnh'}" type="button" id="moXem"></button></div></div>`);
+    <button aria-label="${L.mo} ${luoi ? 'ảnh lười' : 'ảnh'}" type="button" id="moXem"></button></div></div>`);
   document.getElementById('moXem').onclick = () => {
     const d = document.createElement('div');
     d.setAttribute('role', 'dialog');
-    d.innerHTML = `<button aria-label="Close">x</button><img src="${url}">`;
-    d.querySelector('[aria-label=Close]').onclick = () => d.remove();
+    d.innerHTML = `<button aria-label="${L.dong}">x</button><img src="${url}">`;
+    d.querySelector('button').onclick = () => d.remove();
     document.body.appendChild(d);
   };
 }

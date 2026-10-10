@@ -13,7 +13,7 @@
   let S = null;
   const U = Object.assign({
     trang: 'anh', duAn: '', loc: 'tat', tim: '', moiNhat: true, cheDo: 'tudo', tyLe: { anh: '9:16', video: '9:16' },
-    nhap: { anh: '', video: '' }, tvLoc: 'tat', tvDuAn: '', chuoi: { bat: false, prompt: '', tyLe: '' }
+    nhap: { anh: '', video: '' }, tvLoc: 'tat', tvDuAn: '', chuoi: { bat: false, prompt: '', tyLe: '' }, promptThuMuc: ''
   }, docLuu());
   U.chon = new Set(); U.chiTiet = null; U.nvChon = new Set(); U.log = []; U.dangNhapMo = false;
   // Ảnh tham chiếu / thư mục ảnh RIÊNG cho từng trang: ảnh gắn ở trang video không được dính sang trang ảnh.
@@ -24,7 +24,7 @@
   function luuUi() {
     try {
       localStorage.setItem(KHOA, JSON.stringify({ trang: U.trang, duAn: U.duAn, loc: U.loc, moiNhat: U.moiNhat, cheDo: U.cheDo,
-        tyLe: U.tyLe, nhap: U.nhap, tvLoc: U.tvLoc, tvDuAn: U.tvDuAn, chuoi: U.chuoi }));
+        tyLe: U.tyLe, nhap: U.nhap, tvLoc: U.tvLoc, tvDuAn: U.tvDuAn, chuoi: U.chuoi, promptThuMuc: U.promptThuMuc }));
     } catch (_) {}
   }
 
@@ -116,6 +116,7 @@
       $('#oPrompt').value = U.nhap[loaiTrang()] || '';
       for (const b of $$('#tyLe button')) b.classList.toggle('on', b.dataset.v === U.tyLe[loaiTrang()]);
       $('#promptVideoChung').value = U.chuoi.prompt;
+      $('#promptThuMuc').value = U.promptThuMuc;
       $('#tyLeVideoChuoi').value = U.chuoi.tyLe;
     }
     if (trang === 'caidat') veCaiDat();
@@ -417,9 +418,10 @@
   async function taoViec(chay) {
     const loai = loaiTrang();
     let prompts = HD.tachPrompt($('#oPrompt').value, $('#tachPrompt').value);
-    // Video từ thư mục ảnh: 0 hoặc 1 prompt → mỗi ảnh một video, dùng chung prompt đó.
-    if (loai === 'video' && TC().thuMuc && prompts.length <= 1) {
-      const p0 = prompts[0] || HD.PROMPT_VIDEO_MAC_DINH;
+    // Video từ thư mục ảnh: ô prompt dùng chung (hoặc ô Prompt có 0–1 prompt) → mỗi ảnh một video cùng prompt.
+    const chung = U.promptThuMuc.trim();
+    if (loai === 'video' && TC().thuMuc && (chung || prompts.length <= 1)) {
+      const p0 = chung || prompts[0] || HD.PROMPT_VIDEO_MAC_DINH;
       prompts = TC().thuMuc.anh.map(() => p0);
     }
     if (!prompts.length) { toast('Chưa có prompt nào', true); $('#oPrompt').focus(); return; }
@@ -618,6 +620,13 @@
     $('#dongCuoi').textContent = d.chu;
     $('#dongCuoi').title = d.chu;
     if (!$('#nganLog').hidden) veLog();
+    else if (d.muc === 'error') { U.loiChuaXem = (U.loiChuaXem || 0) + 1; veDemLoi(); }
+  }
+  /** Số lỗi mới từ lần mở nhật ký trước, hiện ngay trên nút Nhật ký. */
+  function veDemLoi() {
+    const b = $('#demLoiLog');
+    b.hidden = !U.loiChuaXem;
+    b.textContent = U.loiChuaXem > 99 ? '99+' : String(U.loiChuaXem || '');
   }
   function veLog() {
     const h = $('#dsLog');
@@ -703,6 +712,7 @@
     for (const id of ['#tuSo', '#denSo']) $(id).addEventListener('input', veTao);
     $('#batChuoi').onchange = (e) => { U.chuoi.bat = e.target.checked; luuUi(); veTao(); if (U.chuoi.bat) $('#promptVideoChung').focus(); };
     $('#promptVideoChung').addEventListener('input', (e) => { U.chuoi.prompt = e.target.value; luuUi(); });
+    $('#promptThuMuc').addEventListener('input', (e) => { U.promptThuMuc = e.target.value; luuUi(); });
     $('#tyLeVideoChuoi').onchange = (e) => { U.chuoi.tyLe = e.target.value; luuUi(); };
     $('#luongNhanh').onchange = async (e) => {
       const n = Math.max(1, Math.min(20, parseInt(e.target.value, 10) || 3));
@@ -730,7 +740,7 @@
       if (boLe) TC().ds = [];
       veTao();
       toast(loaiTrang() === 'video'
-        ? `Thư mục có ${r.anh.length} ảnh — mỗi ảnh một video (1 prompt hoặc để trống = dùng chung)${boLe ? '. Đã bỏ ảnh tham chiếu lẻ.' : ''}`
+        ? `Thư mục có ${r.anh.length} ảnh — mỗi ảnh một video, dùng prompt ở ô "Prompt dùng chung"${boLe ? '. Đã bỏ ảnh tham chiếu lẻ.' : ''}`
         : `Thư mục có ${r.anh.length} ảnh — gán lần lượt cho từng prompt`);
     };
     $('#nutChonThuMuc').onclick = chonThuMucAnh;
@@ -886,7 +896,11 @@
     };
 
     // Nhật ký
-    $('#nutNhatKy').onclick = () => { const n = $('#nganLog'); n.hidden = !n.hidden; if (!n.hidden) veLog(); };
+    $('#nutNhatKy').onclick = () => {
+      const n = $('#nganLog'); n.hidden = !n.hidden;
+      $('#nutNhatKy').classList.toggle('on', !n.hidden);
+      if (!n.hidden) { veLog(); U.loiChuaXem = 0; veDemLoi(); }
+    };
     $('#nutSaoChepLog').onclick = async () => { await navigator.clipboard.writeText(U.log.map(dongLogText).join('\n')); toast('Đã sao chép nhật ký'); };
     $('#nutXoaLog').onclick = () => { U.log = []; api.call('xoaNhatKy'); $('#dongCuoi').textContent = ''; veLog(); };
   }

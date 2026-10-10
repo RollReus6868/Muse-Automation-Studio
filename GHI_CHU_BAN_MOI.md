@@ -1,7 +1,5 @@
-# Muse Automation Studio 1.3.0
+# Muse Automation Studio 1.3.1
 
-- **Ảnh và video chạy song song**: khi bật "Ảnh xong → tự tạo video", ảnh nào xong là video của nó được chạy ngay ở luồng rảnh kế tiếp — không chờ hết cả mẻ ảnh.
-- **Tạo video từ thư mục ảnh có sẵn** (trang Tạo video): chọn thư mục ảnh trên máy → mỗi ảnh thành một video. Nhập 1 prompt (hoặc để trống) là mọi ảnh dùng chung. Thêm ký hiệu tên file `{tenAnh}` để video trùng tên ảnh gốc.
-- **Chọn hết** trong hàng đợi: chọn/bỏ chọn mọi việc đang hiện (theo bộ lọc và ô tìm).
-- **Tự chạy lại việc lỗi**: hết hàng chờ mà còn việc lỗi, tool tự đưa chúng về chạy lại (mặc định tối đa 2 lượt; đổi ở Cài đặt → "Hết lượt → tự chạy lại việc lỗi").
-- Ô Prompt không giới hạn ký tự (đã kiểm prompt 20.000+ ký tự tới Muse đủ, không cắt).
+- **Sửa lỗi macOS báo "Chưa đăng nhập" dù đã đăng nhập**: trên máy dùng tiếng Việt, Muse hiện giao diện tiếng Việt ("Nhắn tin", "Gửi"…) nên tool không nhận ra ô soạn tin. Nay tool hiểu cả giao diện tiếng Việt lẫn tiếng Anh: "Kiểm tra" báo đúng đã đăng nhập, chạy gửi prompt / đính kèm ảnh / tải ảnh bình thường.
+- **Tạo video từ thư mục ảnh** có ô **Prompt dùng chung** riêng: chọn thư mục → gõ prompt vào ô này → mọi ảnh dùng chung prompt đó.
+- Nút **Nhật ký** (góc dưới trái) to, dễ thấy hơn; có số đỏ báo số lỗi mới từ lần xem trước.

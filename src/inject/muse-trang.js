@@ -5,14 +5,16 @@
 //  diện thì chỉ sửa một file này (và trang giả tests/fixture-muse.html).
 //
 //  Dò bằng thuộc tính ỔN ĐỊNH Muse tự gắn (đo ngày 10/10/2026):
-//    ô nhập          textarea[aria-label="Message"]
-//    nút gửi         button[aria-label="Send"]
-//    đính kèm        input[type=file]  (multiple)  → nút "Remove attachment"
+//    ô nhập          textarea[data-hatch-composer-prehydration-input]  (aria-label "Message")
+//    nút gửi         button aria-label "Send" — hoặc nút MỚI hiện ở khung soạn sau khi gõ chữ
+//    đính kèm        input[type=file]  (multiple)  → nút "Remove attachment" / ảnh thu nhỏ
 //    tin của Muse    [data-message-role="assistant"]
 //    khung ảnh       [data-testid="hatch-chat-attachment-presentation-image"]
 //    khung video     [data-testid="hatch-chat-attachment-presentation-video"]
 //    ảnh đang nạp    [data-testid="chat-image-not-found"]  (thoáng qua, KHÔNG phải lỗi)
-//    đang gõ         [aria-label="Assistant is typing"]
+//    đang gõ         [aria-label="Assistant is typing"]  hoặc aria-busy
+//  NHÃN aria-label ĐỔI THEO NGÔN NGỮ (máy tiếng Việt: "Nhắn tin", "Gửi"…) → mọi chỗ dò theo
+//  nhãn đều có bản tiếng Việt (NHAN) và một đường dự phòng không cần chữ.
 //  Ảnh/video nằm trong blob: cùng nguồn → fetch() lấy được file gốc, khỏi
 //  bấm nút Download.
 //
@@ -37,14 +39,37 @@
     }
   }
 
-  const oNhap = () => $('textarea[aria-label="Message"]');
-  const nutGui = () => $('button[aria-label="Send"]');
+  // Nhãn Muse theo cả tiếng Anh lẫn tiếng Việt (giao diện Muse theo ngôn ngữ máy/tài khoản).
+  const NHAN = {
+    gui: /^(send|gửi)( message| tin nhắn)?$/i,
+    goDinhKem: /remove|xóa|xoá|gỡ|bỏ/i,
+    dangGo: /typing|đang (nhập|gõ|soạn|viết|trả lời)/i,
+    mo: /^(open|mở|xem)/i,
+    dong: /^(close|đóng)/i
+  };
+  const nhan = (e) => String((e && e.getAttribute('aria-label')) || '').trim();
+  const nutTheoNhan = (re, goc) => $$('button[aria-label]', goc).filter((b) => re.test(nhan(b)));
+
+  const oNhap = () => $('textarea[data-hatch-composer-prehydration-input]') ||
+    $('textarea[aria-label="Message"],textarea[aria-label="Nhắn tin"]') || $('textarea');
+  /** Khung soạn tin: tổ tiên gần nhất của ô nhập có chứa nút (nút gửi, đính kèm). */
+  function khungSoan(ta) {
+    let e = ta;
+    for (let i = 0; e && i < 6; i++) {
+      e = e.parentElement;
+      if (e && (e.tagName === 'FORM' || $('input[type="file"]', e))) return e;
+    }
+    return (ta && ta.closest('form')) || (ta && ta.parentElement && ta.parentElement.parentElement) || document.body;
+  }
   const tinMuse = () => $$('[data-message-role="assistant"]');
 
   function canDangNhap() {
     if (oNhap()) return false;
     const chu = (document.body && document.body.innerText) || '';
-    return /log in or create an account|đăng nhập hoặc tạo tài khoản/i.test(chu);
+    if (/log in or create an account|đăng nhập hoặc tạo tài khoản/i.test(chu)) return true;
+    // Ngôn ngữ khác: không có ô soạn tin mà có ô nhập email / số điện thoại = màn đăng nhập.
+    return !!$('input[type="email"],input[type="tel"],input[autocomplete="username"]') ||
+      $$('input').some((i) => /mail|phone|mobile|điện thoại/i.test(i.placeholder || ''));
   }
 
   function trangThai() {
@@ -100,12 +125,18 @@
       const dt = new DataTransfer();
       for (const f of files) dt.items.add(b64SangFile(f));
       inp.files = dt.files;
+      const k = khungSoan(ta);
+      const soAnhTruoc = $$('img', k).length;
       inp.dispatchEvent(new Event('change', { bubbles: true }));
-      const du = await cho(() => $$('button[aria-label="Remove attachment"]').length >= files.length, 20000);
+      // Đính kèm xong = có đủ nút gỡ tệp, hoặc (nhãn lạ) khung soạn có thêm đủ ảnh thu nhỏ.
+      const du = await cho(() => nutTheoNhan(NHAN.goDinhKem, k).length >= files.length ||
+        $$('img', k).length >= soAnhTruoc + files.length, 20000);
       if (!du) return { ok: false, loi: 'khong-dinh-kem-duoc', chu: chuLoiTrenTrang() };
       await ngu(800);
     }
 
+    // Nút có sẵn trước khi gõ: nút Gửi là nút MỚI hiện ra sau khi có chữ (khi không đọc được nhãn).
+    const nutCu = new Set($$('button', khungSoan(ta)));
     // React giữ giá trị riêng: phải gán qua setter gốc rồi bắn sự kiện input.
     const datGiaTri = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set;
     datGiaTri.call(ta, p.text);
@@ -120,6 +151,12 @@
     if (ta.value !== p.text) return { ok: false, loi: 'khong-dan-duoc-prompt' };
 
     // Ảnh đang tải lên thì nút gửi tắt — chờ, đừng bấm vào nút chết.
+    const nutGui = () => {
+      const k = khungSoan(ta);
+      const theoNhan = nutTheoNhan(NHAN.gui, k).concat(nutTheoNhan(NHAN.gui));
+      if (theoNhan.length) return theoNhan[0];
+      return $$('button', k).filter((b) => !nutCu.has(b)).pop() || $('button[type="submit"]', k);
+    };
     const nut = await cho(() => { const b = nutGui(); return b && !b.disabled ? b : null; }, 60000);
     if (!nut) return { ok: false, loi: 'nut-gui-bi-tat', chu: chuLoiTrenTrang() };
 
@@ -138,13 +175,17 @@
   function anhDaNap(khung) {
     return $$('img', khung).find((i) => /^blob:|^data:|^https?:/.test(i.src) && i.complete && i.naturalWidth > 16) || null;
   }
+  /** Nút mở trình xem ảnh của một khung ảnh ("Open generated image…" / "Mở…"). */
+  function nutMoAnh(khung) {
+    const tin = khung.closest('[data-message-role="assistant"]') || khung;
+    return nutTheoNhan(NHAN.mo, tin)[0] || null;
+  }
   /** Ảnh coi như sẵn sàng: đã nạp, HOẶC chưa nạp (ảnh lười ở trang chạy ngầm) nhưng
-   *  Muse đã gắn nút "Open generated image" và không còn ô "đang nạp". */
+   *  Muse đã gắn nút mở ảnh và không còn ô "đang nạp". */
   function anhSanSang(khung) {
     if (anhDaNap(khung)) return true;
     if ($('[data-testid="chat-image-not-found"]', khung)) return false;
-    const tin = khung.closest('[data-message-role="assistant"]') || khung;
-    return !!$('button[aria-label^="Open generated image"]', tin);
+    return !!nutMoAnh(khung);
   }
   function videoCoNguon(khung) {
     return $$('video', khung).find((v) => /^blob:|^https?:/.test(v.currentSrc || v.src)) || null;
@@ -163,7 +204,7 @@
       soAnh: khungAnh.filter(anhSanSang).length,
       soVideo: khungVideo.filter(videoCoNguon).length,
       dangNap: $$('[data-testid="chat-image-not-found"]').length,
-      dangGo: !!$('[aria-label="Assistant is typing"]') ||
+      dangGo: $$('[aria-label]').some((e) => NHAN.dangGo.test(nhan(e))) ||
         ms.some((m) => m.querySelector('[aria-busy="true"]')),
       chu: ms.map((m) => (m.innerText || '').trim()).filter(Boolean).join('\n').slice(0, 600),
       canDangNhap: canDangNhap(),
@@ -189,8 +230,7 @@
 
   /** Ảnh trong khung chưa nạp (ảnh lười) → mở trình xem của Muse để lấy. */
   async function moTrinhXem(khung) {
-    const tin = khung.closest('[data-message-role="assistant"]') || document;
-    const nut = $('button[aria-label^="Open generated image"]', tin) || $('button[aria-label^="Open"]', khung);
+    const nut = nutMoAnh(khung) || $('button', khung);
     if (!nut) return { daMo: false, img: null };
     nut.click();
     const img = await cho(() => {
@@ -201,7 +241,7 @@
   }
   function dongTrinhXem() {
     const d = $$('[role="dialog"]').pop();
-    const nut = d && $('button[aria-label="Close"]', d);
+    const nut = d && nutTheoNhan(NHAN.dong, d)[0];
     if (nut) nut.click();
     else document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   }

@@ -308,8 +308,11 @@ select option { background: var(--panel-dac); }
 
 /* ── Nhật ký ── */
 .logbar { display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; flex-shrink: 0; font-size: 12.5px; color: var(--chu-phu); }
-.nhat-ky-mo { display: inline-flex; align-items: center; gap: 6px; color: var(--chu-phu); font-weight: 700; font-size: 12.5px; }
+.nhat-ky-mo { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; height: 26px; padding: 0 12px; border-radius: 999px;
+  border: 1px solid var(--tim); background: var(--tim-nen); color: var(--chu); font-weight: 800; font-size: 12.5px; }
+.nhat-ky-mo:hover, .nhat-ky-mo.on { background: var(--gradient); border-color: transparent; color: #fff; }
 .nhat-ky-mo i { width: 14px; height: 14px; }
+.dem-loi { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--do); color: #fff; font-size: 11px; line-height: 18px; text-align: center; }
 .dong-cuoi { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ngan-log { position: absolute; left: 0; right: 0; bottom: 40px; height: 42%; z-index: 40; background: var(--panel-dac); border: 1px solid var(--vien-dam);
   border-radius: var(--bo-panel); padding: 10px 12px; box-shadow: 0 -10px 40px rgba(0, 0, 0, .4); display: flex; flex-direction: column; }

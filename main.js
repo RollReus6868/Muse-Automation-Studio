@@ -69,7 +69,8 @@ function phien(tk) {
   if (!daCauHinh.has(tk.partition)) {
     daCauHinh.add(tk.partition);
     // Bỏ chữ "Electron/…" khỏi user agent: nhiều trang chặn đăng nhập trong webview.
-    ses.setUserAgent(ses.getUserAgent().replace(/\s(Electron|MuseAutomationStudio|muse-automation-studio)\/\S+/gi, ''));
+    // Xin Muse giao diện tiếng Anh (nhãn đã đo); Muse vẫn hiện tiếng Việt thì muse-trang.js cũng hiểu.
+    ses.setUserAgent(ses.getUserAgent().replace(/\s(Electron|MuseAutomationStudio|muse-automation-studio)\/\S+/gi, ''), 'en-US,en');
   }
   return ses;
 }

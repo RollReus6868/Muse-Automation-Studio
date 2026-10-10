@@ -353,9 +353,17 @@ test('mọi icon dùng đều có trong icons.js', () => {
 test('trang giả dùng đúng các thuộc tính trình trợ giúp dò (giữ hai bên khớp nhau)', () => {
   const tro = docNguon('src/inject/muse-trang.js', true);
   const gia = docNguon('tests/fixture-muse.html', true);
-  const chuoi = new Set([...tro.matchAll(/(aria-label|data-testid|data-message-role)="([^"]+)"/g)].map((m) => m[2]));
-  assert.ok(chuoi.size >= 10, `chỉ thấy ${chuoi.size}`);
+  const chuoi = new Set([...tro.matchAll(/(aria-label|data-testid|data-message-role)="([^"]+)"|\[(data-hatch-[\w-]+)\]/g)].map((m) => m[2] || m[3]));
+  assert.ok(chuoi.size >= 7, `chỉ thấy ${chuoi.size}`);
   assert.deepStrictEqual([...chuoi].filter((c) => !gia.includes(c)), []);
+});
+test('nhãn Muse: hiểu cả tiếng Anh (đã đo) lẫn tiếng Việt, không nhầm nút khác', () => {
+  const s = docNguon('src/inject/muse-trang.js');
+  const NHAN = eval('(' + s.match(/const NHAN = (\{[\s\S]*?\});/)[1] + ')');
+  const dung = { gui: ['Send', 'Gửi', 'Gửi tin nhắn'], goDinhKem: ['Remove attachment', 'Xóa tệp đính kèm', 'Gỡ tệp'],
+    dangGo: ['Assistant is typing', 'Trợ lý đang nhập'], mo: ['Open generated image 1', 'Mở hình ảnh đã tạo'], dong: ['Close', 'Đóng'] };
+  for (const [k, ds] of Object.entries(dung)) for (const x of ds) assert.ok(NHAN[k].test(x), `${k} phải nhận "${x}"`);
+  for (const x of ['Gửi phản hồi', 'Send feedback', 'Attach file']) assert.ok(!NHAN.gui.test(x), `gui không được nhận "${x}"`);
 });
 test('trình trợ giúp kết thúc bằng undefined; (executeJavaScript không phải sao chép hàm)', () => {
   assert.ok(/\nundefined;\s*$/.test(docNguon('src/inject/muse-trang.js', true)));

@@ -22,7 +22,7 @@ Kết quả mặc định lưu ở `Tài liệu/Muse Automation Studio/<Dự_án
 | Ảnh tham chiếu | Kéo thả ảnh để gửi kèm mọi prompt; *chọn thư mục* để gán ảnh 1 → prompt 1, ảnh 2 → prompt 2… |
 | Nhân vật | Lưu ảnh nhân vật kèm tên; prompt nhắc tên là tự gửi kèm ảnh (*Giữ nguyên nhân vật*), hoặc chế độ *Người mẫu* gắn vào mọi prompt |
 | Ảnh → video | *⋮ → Tạo video từ ảnh này*; hoặc bật **Ảnh xong → tự tạo video** để cả mẻ ảnh tự sinh video (chung một prompt video) |
-| Video từ thư mục ảnh | Trang Tạo video → *Tạo video từ thư mục ảnh*: mỗi ảnh một video, dùng chung 1 prompt; `{tenAnh}` đặt tên video theo ảnh |
+| Video từ thư mục ảnh | Trang Tạo video → *Tạo video từ thư mục ảnh*: mỗi ảnh một video, dùng chung prompt ở ô *Prompt dùng chung*; `{tenAnh}` đặt tên video theo ảnh |
 | Tự chạy lại lỗi | Hết hàng chờ còn việc lỗi → tự chạy lại (mặc định 2 lượt) |
 | Chạy một đoạn | *Cài đặt nâng cao → Chạy từ prompt số … đến số …* |
 | Nhiều file .txt | *Nhập nhiều file .txt*: mỗi file thành một dự án mang tên file và tự vào hàng đợi |
@@ -36,7 +36,7 @@ Kết quả mặc định lưu ở `Tài liệu/Muse Automation Studio/<Dự_án
 
 ## Khi có sự cố
 
-- **Nhật ký**: bấm *Nhật ký* ở góc dưới để xem; bản đầy đủ nằm ở thư mục dữ liệu (*Cài đặt → Mở thư mục dữ liệu*, file `nhat-ky.txt`).
+- **Nhật ký**: bấm nút *Nhật ký* ở góc dưới trái (số đỏ = số lỗi mới) để xem; bản đầy đủ nằm ở thư mục dữ liệu (*Cài đặt → Mở thư mục dữ liệu*, file `nhat-ky.txt`).
 - **Muốn nhìn tận mắt luồng đang làm gì**: *Cài đặt → Hiện các luồng chạy ngầm*.
 - **Muse đổi giao diện** làm tool không tìm thấy ô nhập / ảnh: mọi chỗ dò trang nằm trong một file `src/inject/muse-trang.js`.
 
@@ -67,6 +67,11 @@ Biến môi trường cho kiểm thử: `MUSE_URL` (địa chỉ Muse giả), `M
 Phát hành: tăng `version` trong `package.json`, ghi `GHI_CHU_BAN_MOI.md` (nhắc số phiên bản), push, rồi *Actions → Phat hanh ban moi → Run workflow*. Repo phải để **public** thì app mới tự cập nhật được.
 
 ## Lịch sử
+
+### 1.3.1 (10/10/2026) — Mac báo "Chưa đăng nhập" dù đã đăng nhập
+- Nguyên nhân: Muse hiện tiếng Việt theo ngôn ngữ máy (ô soạn tin "Nhắn tin"), mà tool dò ô nhập theo nhãn tiếng Anh `aria-label="Message"` → không thấy ô nhập, không thấy màn đăng nhập → "Chưa kiểm" / "không kiểm được (mạng?)" / "Không mở được trang Muse".
+- Sửa: `muse-trang.js` dò theo thuộc tính không phụ thuộc ngôn ngữ (`data-hatch-composer-prehydration-input`), mọi nhãn còn lại có bản tiếng Việt (`NHAN`) và đường dự phòng không cần chữ (nút Gửi = nút mới hiện sau khi gõ; đính kèm xong = có thêm ảnh thu nhỏ; màn đăng nhập = có ô email/điện thoại). Session xin `Accept-Language: en-US`. Trang giả có chế độ tiếng Việt (cookie `muse_lang=vi`, nhãn lạ cố ý) + bài đầu-cuối §11; helper cũ chạy trên chế độ này ra đúng triệu chứng của người dùng.
+- Ô "Prompt dùng chung" riêng cho Tạo video từ thư mục ảnh. Nút Nhật ký nổi bật, có số lỗi chưa xem.
 
 ### 1.3.0 (10/10/2026)
 - Video nối từ ảnh được ưu tiên chạy ngay (`viecKeTiep`: video `tuAnh` trước ảnh còn chờ) → ảnh và video chạy xen kẽ song song.
