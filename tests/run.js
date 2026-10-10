@@ -94,6 +94,22 @@ test('việc kế tiếp: cũ nhất trước, ưu tiên chat dở của mình, 
   assert.strictEqual(HD.viecKeTiep(ds, null, (j) => j.thread && j.taiKhoan !== 'A').id, 2);
   assert.strictEqual(HD.viecKeTiep([{ trangThai: 'loi' }]), null);
 });
+test('video nối từ ảnh được chạy trước các ảnh còn chờ (ảnh và video song song)', () => {
+  const ds = [
+    { id: 1, trangThai: 'cho', taoLuc: 1, loai: 'anh' },
+    { id: 2, trangThai: 'cho', taoLuc: 2, loai: 'anh' },
+    { id: 9, trangThai: 'cho', taoLuc: 50, loai: 'video', tuAnh: 7 },
+    { id: 8, trangThai: 'cho', taoLuc: 40, loai: 'video', tuAnh: 6 }
+  ];
+  assert.strictEqual(HD.viecKeTiep(ds).id, 8, 'video nối cũ nhất');
+  assert.strictEqual(HD.viecKeTiep(ds.slice(0, 2)).id, 1);
+  assert.strictEqual(HD.viecKeTiep(ds, (j) => j.id === 2).id, 2, 'chat dở của mình vẫn ưu tiên nhất');
+});
+test('{tenAnh}: tên ảnh nguồn bỏ đuôi; không có ảnh thì bằng {stt}', () => {
+  assert.strictEqual(HD.tenFile({ ten: 'A' }, { so: 4, stt: 2, thamChieu: ['C:\\anh\\canh 01.png'] }, 'video/mp4', 0, '{tenAnh}'), 'canh 01.mp4');
+  assert.strictEqual(HD.tenFile({ ten: 'A' }, { so: 4, stt: 2, thamChieu: ['/x/nv.png', '/y/z/hai.jpg'] }, 'video/mp4', 0, 'v/{tenAnh}'), 'v/hai.mp4');
+  assert.strictEqual(HD.tenFile({ ten: 'A' }, { so: 4, stt: 2 }, 'video/mp4', 0, '{tenAnh}'), '002.mp4');
+});
 test('tiến độ ước: không bao giờ 100 khi chưa xong, tăng dần, ≥1', () => {
   const j = { trangThai: 'chay', batDauLuc: 1000 };
   let truoc = 0;
@@ -255,6 +271,22 @@ test('cài đặt bị kẹp trong khoảng an toàn; mẫu thiếu {prompt} tr�
   assert.strictEqual(dp.caiDat.nghiGiuaLanGui, 0);
   assert.strictEqual(dp.caiDat.choAnhGiay, 240);
   assert.strictEqual(dp.caiDat.mau.anh, HD.MAU_MAC_DINH.anh);
+});
+testAsync('hết lượt mà còn việc lỗi → tự chạy lại tối đa N lượt; Tạo lại tay thì đếm lại từ đầu', async () => {
+  let lanChay = 0;
+  const taoLuong = () => ({ id: 'L', ranh: true, viec: null, dung() {},
+    async chay(j) { this.ranh = false; lanChay++; await new Promise((r) => setTimeout(r, 5)); this.ranh = true; return { ok: false, loi: 'hỏng' }; } });
+  const { dp, nhatKy } = dungDieuPhoi({ taoLuong });
+  dp.datCaiDat({ tuThuLai: 0, tuChayLaiLoi: 2, luongMoiTK: 1, nghiGiuaLanGui: 0 });
+  dp.them({ prompts: ['a'] });
+  dp.chayTatCa();
+  for (let i = 0; i < 60 && dp.dangChay; i++) { dp._vong(); await new Promise((r) => setTimeout(r, 15)); }
+  const j = dp.viec[0];
+  assert.strictEqual(lanChay, 3, 'chạy 1 lần + 2 lượt lại');
+  assert.deepStrictEqual([j.trangThai, j.vongLai], ['loi', 2]);
+  assert.ok(nhatKy.some((d) => /tự chạy lại 1 việc lỗi \(lượt 2\/2\)/.test(d)));
+  dp.taoLai([j.id]);
+  assert.strictEqual(j.vongLai, 0);
 });
 test('dự án: không xoá dự án cuối, xoá dự án xoá luôn việc của nó', () => {
   const { dp } = dungDieuPhoi();

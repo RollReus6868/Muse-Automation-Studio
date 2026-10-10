@@ -30,7 +30,7 @@ jobs:
         run: npm test
 
       - name: Kiem thu dau-cuoi (trang Muse gia)
-        timeout-minutes: 8
+        timeout-minutes: 12
         run: node tests/e2e.js
 
       - name: Dong goi

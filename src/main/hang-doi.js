@@ -90,6 +90,7 @@ function taoTinNhan(job, nhanVat, mau) {
 }
 
 const MAU_TEN_MAC_DINH = '{duAn}/{duAn}_{so}';
+const PROMPT_VIDEO_MAC_DINH = 'Làm cho ảnh chuyển động tự nhiên, máy quay chuyển động nhẹ, giữ nguyên bố cục, nhân vật và phong cách của ảnh.';
 
 /** Một đoạn đường dẫn an toàn trên Windows lẫn Mac: bỏ ký tự cấm, bỏ '..', bỏ dấu chấm/cách cuối. */
 function sachDoan(s) {
@@ -101,6 +102,7 @@ function sachDoan(s) {
  *   {duAn}   tên dự án không dấu        {so}  số thứ tự trong hàng đợi (3 chữ số)
  *   {stt}    số thứ tự prompt trong mẻ  {prompt} 6 từ đầu của prompt, không dấu
  *   {ngay}   ngày tạo YYYY-MM-DD        {loai} anh | video
+ *   {tenAnh} tên file ảnh nguồn (video tạo từ ảnh) — không có thì bằng {stt}
  * Thêm _2, _3 nếu Muse trả nhiều file cho một việc.
  */
 function tenFile(duAn, job, mime, thuTu, mau) {
@@ -109,7 +111,9 @@ function tenFile(duAn, job, mime, thuTu, mau) {
   const ngay = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const giaTri = {
     duAn: slugTen(duAn && duAn.ten), so: so3(job.so), stt: so3(job.stt || job.so), ngay, loai: job.loai || 'anh',
-    prompt: slugTen(String(job.prompt || '').split(/\s+/).slice(0, 6).join(' ')).slice(0, 40)
+    prompt: slugTen(String(job.prompt || '').split(/\s+/).slice(0, 6).join(' ')).slice(0, 40),
+    // Tên ảnh nguồn (ảnh đính kèm cuối — ảnh của chính việc này khi tạo video từ ảnh), bỏ đuôi.
+    tenAnh: (String((job.thamChieu || []).slice(-1)[0] || '').split(/[\\/]/).pop().replace(/\.[^.]+$/, '')) || so3(job.stt || job.so)
   };
   const m = String(mau || '').trim() || MAU_TEN_MAC_DINH;
   const doan = m.replace(/\{(\w+)\}/g, (x, k) => (k in giaTri ? giaTri[k] : x))
@@ -141,14 +145,17 @@ function chonKhoang(prompts, tu, den) {
  * boQua(job)  → true: luồng này không được nhận (chat dở của tài khoản khác đang chạy).
  */
 function viecKeTiep(jobs, uuTien, boQua) {
-  let tot = null;
+  const truoc = (a, b) => !b || a.taoLuc < b.taoLuc || (a.taoLuc === b.taoLuc && a.id < b.id);
+  let tot = null, video = null;
   for (const j of jobs) {
     if (j.trangThai !== 'cho') continue;
     if (boQua && boQua(j)) continue;
     if (uuTien && uuTien(j)) return j;
-    if (!tot || j.taoLuc < tot.taoLuc || (j.taoLuc === tot.taoLuc && j.id < tot.id)) tot = j;
+    // Video nối từ ảnh vừa xong được chạy NGAY (song song với các ảnh còn lại), không xếp sau cả mẻ ảnh.
+    if (j.tuAnh && truoc(j, video)) video = j;
+    if (truoc(j, tot)) tot = j;
   }
-  return tot;
+  return video || tot;
 }
 
 /** Thời gian dự kiến (giây) = trung bình 10 việc xong gần nhất cùng loại, mặc định ảnh 35s, video 80s. */
@@ -189,7 +196,7 @@ function soSanhTuNhien(a, b) {
 }
 
 const HD = {
-  TY_LE, MAU_MAC_DINH, MAU_TEN_MAC_DINH, slugTen, tachPrompt, timNhanVat, taoTinNhan, tenFile, chonKhoang,
+  TY_LE, MAU_MAC_DINH, MAU_TEN_MAC_DINH, PROMPT_VIDEO_MAC_DINH, slugTen, tachPrompt, timNhanVat, taoTinNhan, tenFile, chonKhoang,
   viecKeTiep, thoiGianDuKien, tienDoUoc, daXong, laTraLoiChu, soSanhTuNhien
 };
 // Dùng chung cho tiến trình chính (require) và giao diện (<script> → window.HD).

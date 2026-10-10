@@ -204,6 +204,10 @@ select option { background: var(--panel-dac); }
 .o-tim i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: var(--chu-mo); }
 .o-tim input { padding-left: 32px; }
 .loc-dong { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.chon-het { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: var(--chu-phu); cursor: pointer; padding: 0 4px; white-space: nowrap; }
+.chon-het input { width: 16px; height: 16px; accent-color: var(--g2); cursor: pointer; }
+#khuVideoThuMuc .dong-o { margin-top: 8px; }
+#khuVideoThuMuc .dong-o .mo { font-size: 12.5px; }
 .tabs-loc { display: flex; gap: 6px; flex-wrap: wrap; }
 .tabs-loc button { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 600;
   color: var(--chu-phu); background: var(--the); border: 1px solid var(--vien); }

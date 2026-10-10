@@ -22,6 +22,8 @@ Kết quả mặc định lưu ở `Tài liệu/Muse Automation Studio/<Dự_án
 | Ảnh tham chiếu | Kéo thả ảnh để gửi kèm mọi prompt; *chọn thư mục* để gán ảnh 1 → prompt 1, ảnh 2 → prompt 2… |
 | Nhân vật | Lưu ảnh nhân vật kèm tên; prompt nhắc tên là tự gửi kèm ảnh (*Giữ nguyên nhân vật*), hoặc chế độ *Người mẫu* gắn vào mọi prompt |
 | Ảnh → video | *⋮ → Tạo video từ ảnh này*; hoặc bật **Ảnh xong → tự tạo video** để cả mẻ ảnh tự sinh video (chung một prompt video) |
+| Video từ thư mục ảnh | Trang Tạo video → *Tạo video từ thư mục ảnh*: mỗi ảnh một video, dùng chung 1 prompt; `{tenAnh}` đặt tên video theo ảnh |
+| Tự chạy lại lỗi | Hết hàng chờ còn việc lỗi → tự chạy lại (mặc định 2 lượt) |
 | Chạy một đoạn | *Cài đặt nâng cao → Chạy từ prompt số … đến số …* |
 | Nhiều file .txt | *Nhập nhiều file .txt*: mỗi file thành một dự án mang tên file và tự vào hàng đợi |
 | Tải về & tên file | Trong *Cài đặt nâng cao* của trang Tạo ảnh / Tạo video: thư mục riêng cho ảnh / video, công tắc tải về riêng, mẫu tên `{duAn}` `{so}` `{stt}` `{prompt}` `{ngay}` `{loai}`; trùng tên tự thêm (2), không ghi đè |
@@ -65,6 +67,12 @@ Biến môi trường cho kiểm thử: `MUSE_URL` (địa chỉ Muse giả), `M
 Phát hành: tăng `version` trong `package.json`, ghi `GHI_CHU_BAN_MOI.md` (nhắc số phiên bản), push, rồi *Actions → Phat hanh ban moi → Run workflow*. Repo phải để **public** thì app mới tự cập nhật được.
 
 ## Lịch sử
+
+### 1.3.0 (10/10/2026)
+- Video nối từ ảnh được ưu tiên chạy ngay (`viecKeTiep`: video `tuAnh` trước ảnh còn chờ) → ảnh và video chạy xen kẽ song song.
+- Tạo video từ thư mục ảnh có sẵn (0–1 prompt = dùng chung; mặc định "chuyển động tự nhiên" khi để trống); ký hiệu `{tenAnh}`. Chọn thư mục ở trang video bỏ ảnh tham chiếu lẻ (tránh mỗi video bị gửi kèm 2 ảnh — bắt được trong bài đầu-cuối).
+- "Chọn hết" trong hàng đợi. Hết lượt → tự chạy lại việc lỗi (`tuChayLaiLoi`, mặc định 2; Tạo lại tay đếm lại từ 0).
+- Đã kiểm prompt > 20.000 ký tự đi tới Muse đủ (ô soạn tin của Muse không có maxlength).
 
 ### 1.2.1 (10/10/2026) — không gửi được prompt trên muse.ai thật
 - Triệu chứng: mọi việc đứng "Đang gửi prompt" rồi "Lỗi luồng: Cannot read properties of undefined (reading 'trim')".

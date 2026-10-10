@@ -22,7 +22,8 @@ const CAI_DAT_MAC_DINH = {
   choAnhGiay: 240,        // chờ tối đa một ảnh
   choVideoGiay: 600,      // chờ tối đa một video
   choChuGiay: 60,         // Muse trả chữ không kèm ảnh bao lâu thì coi là hỏi lại (video ×2)
-  tuThuLai: 1,            // tự thử lại mấy lần khi lỗi
+  tuThuLai: 1,            // tự thử lại mấy lần khi lỗi (ngay lúc lỗi)
+  tuChayLaiLoi: 2,        // hết hàng chờ mà còn việc lỗi → tự đưa về chạy lại, tối đa mấy lượt
   png: true,              // đổi ảnh webp của Muse sang png
   tachPrompt: 'dong',     // 'dong' | 'doan'
   mau: { ...hd.MAU_MAC_DINH }
@@ -171,7 +172,7 @@ class DieuPhoi {
     let n = 0;
     for (const j of this.viec) {
       if (!ids.includes(j.id) || j.trangThai === 'chay') continue;
-      Object.assign(j, { trangThai: 'cho', buoc: '', thread: '', taiKhoan: '', loi: '', thu: 0, batDauLuc: 0, xongLuc: 0 });
+      Object.assign(j, { trangThai: 'cho', buoc: '', thread: '', taiKhoan: '', loi: '', thu: 0, batDauLuc: 0, xongLuc: 0, vongLai: 0 });
       n++;
     }
     this.luu();
@@ -213,6 +214,7 @@ class DieuPhoi {
     m.choVideoGiay = so(m.choVideoGiay, 120, 3600, 600);
     m.choChuGiay = so(m.choChuGiay, 15, 600, 60);
     m.tuThuLai = Math.max(0, Math.min(5, parseInt(m.tuThuLai, 10) || 0));
+    m.tuChayLaiLoi = Math.max(0, Math.min(10, parseInt(m.tuChayLaiLoi, 10) || 0));
     m.mau = { ...hd.MAU_MAC_DINH, ...(m.mau || {}) };
     for (const k of ['anh', 'video']) if (!String(m.mau[k] || '').includes('{prompt}')) m.mau[k] = hd.MAU_MAC_DINH[k];
     this.caiDat = m;
@@ -294,6 +296,16 @@ class DieuPhoi {
       this._giao(x, j);
     }
     if (!this.viec.some((j) => j.trangThai === 'cho' || j.trangThai === 'chay') && !this.coViecDangChay()) {
+      // Hết một lượt: việc lỗi còn lượt chạy lại → đưa về hàng chờ (gửi prompt mới) và chạy tiếp.
+      const lai = this.viec.filter((j) => j.trangThai === 'loi' && (j.vongLai || 0) < this.caiDat.tuChayLaiLoi);
+      if (lai.length) {
+        for (const j of lai) {
+          Object.assign(j, { trangThai: 'cho', buoc: '', thread: '', taiKhoan: '', thu: 0, batDauLuc: 0, xongLuc: 0, vongLai: (j.vongLai || 0) + 1 });
+        }
+        this.log('warning', `↻ Hết lượt — tự chạy lại ${lai.length} việc lỗi (lượt ${Math.max(...lai.map((j) => j.vongLai))}/${this.caiDat.tuChayLaiLoi})`);
+        this.luu();
+        return;
+      }
       this.dangChay = false;
       this.log('success', '✅ [HỆ THỐNG] Đã chạy hết hàng chờ.');
       this.o.bao();

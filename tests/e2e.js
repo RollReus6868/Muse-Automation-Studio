@@ -38,7 +38,7 @@ sv.listen(0, '127.0.0.1', () => {
   let raChu = '';
   p.stdout.on('data', (d) => { raChu += d; process.stdout.write(d); });
   p.stderr.on('data', (d) => { const s = String(d); if (!/dbus|bus\.cc|viz_main|command_buffer|Fontconfig|gpu/i.test(s)) process.stderr.write(s); });
-  const hen = setTimeout(() => { console.log('E2E: QUÁ GIỜ (240s)'); p.kill('SIGKILL'); }, 240000);
+  const hen = setTimeout(() => { console.log('E2E: QUÁ GIỜ (480s)'); p.kill('SIGKILL'); }, 480000);
   p.on('exit', (code) => {
     clearTimeout(hen);
     sv.close();

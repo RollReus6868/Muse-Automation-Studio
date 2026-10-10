@@ -42,7 +42,7 @@ module.exports = function e2e({ win, app, LENH, dieuPhoi }) {
       await session.fromPartition('persist:muse-tk-1').cookies.set({ url: process.env.MUSE_URL, name: 'muse_login', value: '1' });
       const tk2 = await LENH.themTaiKhoan({ ten: 'TK hai' });
       const ra = path.join(tam, 'ra');
-      LENH.datCaiDat({ luongMoiTK: 3, nghiGiuaLanGui: 0, choChuGiay: 15, tuThuLai: 0, thuMucAnh: ra, thuMucVideo: ra });
+      LENH.datCaiDat({ luongMoiTK: 3, nghiGiuaLanGui: 0, choChuGiay: 15, tuThuLai: 0, tuChayLaiLoi: 0, thuMucAnh: ra, thuMucVideo: ra });
       const anhNV = path.join(tam, 'lan.png'), anhRef = path.join(tam, 'ref.png');
       fs.writeFileSync(anhNV, PNG1); fs.writeFileSync(anhRef, PNG1);
       LENH.luuNhanVat({ ten: 'Lan', moTa: 'tóc ngắn', anh: [anhNV] });
@@ -233,6 +233,75 @@ module.exports = function e2e({ win, app, LENH, dieuPhoi }) {
       await choJs(`/^Tập 1/.test(document.querySelector('#tenDuAn').textContent)`, 5000, 'ô dự án chuyển sang Tập 1');
       const ui5 = await js(`document.querySelector('#tenDuAn').textContent`);
       kiem(/^Tập 1/.test(ui5), `chuyển sang dự án đầu tiên vừa tạo ("${ui5}")`);
+
+      // 6) 1.3.0: ảnh và video song song — 1 luồng, 3 ảnh nối video: video 1 phải chạy TRƯỚC ảnh 2.
+      ghi('-- 6. Ảnh và video song song');
+      LENH.datCaiDat({ luongMoiTK: 1 });
+      const truoc6 = viec().length;
+      LENH.them({ duAn: 'mac-dinh', loai: 'anh', prompts: ['ss một', 'ss hai', 'ss ba'], chuoiVideo: { prompt: 'ss chuyển động' }, chay: true });
+      await cho(() => viec().length >= truoc6 + 6 && !dieuPhoi.dangChay && !dieuPhoi.coViecDangChay(), 90000, 'chạy xong 3 ảnh + 3 video');
+      const thuTu = viec().slice(truoc6).filter((j) => j.batDauLuc).sort((x, y) => x.batDauLuc - y.batDauLuc)
+        .map((j) => (j.loai === 'video' ? 'V' : 'A') + j.stt);
+      ghi(`   thứ tự chạy: ${thuTu.join(' → ')}`);
+      kiem(thuTu.join(',') === 'A1,V1,A2,V2,A3,V3', 'ảnh xong là video của nó chạy ngay, không chờ hết mẻ ảnh');
+      LENH.datCaiDat({ luongMoiTK: 3 });
+
+      // 7) Hết lượt còn việc lỗi → tự chạy lại.
+      ghi('-- 7. Tự chạy lại việc lỗi');
+      LENH.datCaiDat({ tuChayLaiLoi: 1 });
+      const gui7 = (await daGui()).length;
+      LENH.them({ duAn: 'mac-dinh', loai: 'anh', prompts: ['HOI_LAI lần hai'], chay: true });
+      const j7 = viec()[viec().length - 1];
+      await cho(() => !dieuPhoi.dangChay && !dieuPhoi.coViecDangChay(), 90000, 'chạy xong việc lỗi + lượt lại');
+      const lan7 = (await daGui()).slice(gui7).filter((g) => /HOI_LAI lần hai/.test(g.prompt)).length;
+      kiem(j7.trangThai === 'loi' && j7.vongLai === 1 && lan7 === 2, `việc lỗi được tự chạy lại đúng 1 lượt (gửi ${lan7} lần, vongLai=${j7.vongLai})`);
+      LENH.datCaiDat({ tuChayLaiLoi: 0 });
+
+      // 8) Tạo video từ thư mục ảnh có sẵn: để trống prompt → mỗi ảnh một video, tên video = tên ảnh.
+      ghi('-- 8. Video từ thư mục ảnh');
+      const thuMucAnh = path.join(tam, 'anh-co-san');
+      fs.mkdirSync(thuMucAnh, { recursive: true });
+      const tenAnh = ['canh 10.png', 'canh 2.png', 'canh 1.png'];
+      for (const t of tenAnh) fs.writeFileSync(path.join(thuMucAnh, t), PNG1);
+      LENH.chonThuMucAnh = async () => ({ thuMuc: thuMucAnh, anh: ['canh 1.png', 'canh 2.png', 'canh 10.png'].map((t) => path.join(thuMucAnh, t)) });
+      LENH.datCaiDat({ tenVideo: 'tu-anh/{tenAnh}' });
+      const gui8 = (await daGui()).length, truoc8 = viec().length;
+      await js(`window.__diToi('video')`);
+      await choJs(`!document.querySelector('#khuVideoThuMuc').hidden`, 5000, 'khối video từ thư mục');
+      await js(`(() => { const o = document.querySelector('#oPrompt'); o.value = ''; o.dispatchEvent(new Event('input'));
+        for (const id of ['#tuSo', '#denSo']) { const x = document.querySelector(id); x.value = ''; x.dispatchEvent(new Event('input')); }
+        document.querySelector('#nutVideoThuMuc').click(); })()`);
+      await choJs(`/3 ảnh/.test(document.querySelector('#ghiVideoThuMuc').textContent)`, 5000, 'báo 3 ảnh');
+      await chup('e2e-video-thu-muc.png');
+      await js(`document.querySelector('#nutTaoChay').click()`);
+      await cho(() => viec().length >= truoc8 + 3 && !dieuPhoi.dangChay && !dieuPhoi.coViecDangChay(), 90000, 'chạy xong 3 video từ thư mục');
+      const v8 = viec().slice(truoc8);
+      const g8 = (await daGui()).slice(gui8);
+      kiem(v8.length === 3 && v8.every((j) => j.loai === 'video' && j.trangThai === 'xong'), 'thư mục 3 ảnh → 3 video xong');
+      kiem(g8.length === 3 && g8.every((g) => g.soFile === 1 && g.prompt.includes('chuyển động tự nhiên')), 'mỗi video gửi kèm đúng 1 ảnh, prompt mặc định khi để trống');
+      kiem(v8.map((j) => path.relative(rv, j.files[0]).replace(/\\/g, '/')).join(',') === 'tu-anh/canh 1.mp4,tu-anh/canh 2.mp4,tu-anh/canh 10.mp4',
+        `tên video = tên ảnh, theo thứ tự tự nhiên (${v8.map((j) => path.basename(j.files[0] || '?')).join(', ')})`);
+
+      // 9) Prompt rất dài không bị cắt.
+      ghi('-- 9. Prompt 20.000 ký tự');
+      const dai = ('Cảnh dài ' + 'chi tiết '.repeat(2300)).trim();
+      const gui9 = (await daGui()).length;
+      LENH.them({ duAn: 'mac-dinh', loai: 'anh', prompts: [dai], chay: true });
+      await cho(() => !dieuPhoi.dangChay && !dieuPhoi.coViecDangChay(), 60000, 'chạy xong prompt dài');
+      const g9 = (await daGui()).slice(gui9)[0];
+      kiem(g9 && g9.prompt.includes(dai) && dai.length > 20000, `prompt ${dai.length} ký tự tới Muse đủ, không bị cắt (${g9 ? g9.prompt.length : 0})`);
+
+      // 10) Chọn tất cả trong hàng đợi.
+      ghi('-- 10. Chọn tất cả');
+      await js(`window.__diToi('anh')`);
+      await choJs(`document.querySelectorAll('#dsHang .dong-viec').length > 0`, 5000, 'có dòng');
+      await js(`(() => { const c = document.querySelector('#chonHet'); c.checked = true; c.dispatchEvent(new Event('change')); })()`);
+      await choJs(`!document.querySelector('#thanhChon').hidden`, 5000, 'thanh chọn hiện');
+      const c10 = await js(`({ dong: document.querySelectorAll('#dsHang .dong-viec').length, tich: document.querySelectorAll('#dsHang [data-chon]:checked').length, chu: document.querySelector('#soChon').textContent })`);
+      kiem(c10.dong > 0 && c10.tich === c10.dong && c10.chu === `${c10.dong} đã chọn`, `"Tất cả" chọn mọi dòng đang hiện (${c10.chu})`);
+      await js(`(() => { const c = document.querySelector('#chonHet'); c.checked = false; c.dispatchEvent(new Event('change')); })()`);
+      await choJs(`document.querySelector('#thanhChon').hidden`, 5000, 'bỏ chọn hết');
+      kiem(await js(`document.querySelectorAll('#dsHang [data-chon]:checked').length === 0`), 'bỏ "Tất cả" thì bỏ chọn hết');
     } catch (err) {
       ghi('LỖI KỊCH BẢN: ' + err.stack);
       loi.push('ngoại lệ');

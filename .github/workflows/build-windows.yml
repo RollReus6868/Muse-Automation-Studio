@@ -33,7 +33,7 @@ jobs:
 
       # Chay APP THAT tren trang Muse gia: nhieu luong, dung giua chung, dang nhap...
       - name: Kiem thu dau-cuoi (trang Muse gia)
-        timeout-minutes: 8
+        timeout-minutes: 12
         run: node tests/e2e.js
 
       - name: Dong goi
