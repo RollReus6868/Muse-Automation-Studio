@@ -18,6 +18,8 @@ Kết quả mặc định lưu ở `Tài liệu/Muse Automation Studio/<Dự_án
 |---|---|
 | Nhiều luồng | Mỗi tài khoản N luồng (mặc định 3, tối đa 20 — chỉnh ở Cài đặt nâng cao trong cột Tạo), các tài khoản đang bật chạy cùng lúc |
 | Nhiều tài khoản | Mỗi tài khoản một phiên đăng nhập riêng, không đá nhau ra |
+| Mức token | Thẻ tài khoản hiện mức dùng token của Muse (gói tuần, token bổ sung còn lại); tự cập nhật khi chạy hết hàng chờ, nút *Cập nhật token* |
+| Đặt lại hàng đợi | Nút *Đặt lại*: mọi việc của dự án đang xem về *Chờ* như lúc mới thêm |
 | Chat sạch | Mỗi prompt chạy trong một *chat phụ mới* của Muse, không dính ngữ cảnh hay ảnh của prompt trước |
 | Ảnh tham chiếu | Kéo thả ảnh để gửi kèm mọi prompt; *chọn thư mục* để gán ảnh 1 → prompt 1, ảnh 2 → prompt 2… |
 | Nhân vật | Lưu ảnh nhân vật kèm tên; prompt nhắc tên là tự gửi kèm ảnh (*Giữ nguyên nhân vật*), hoặc chế độ *Người mẫu* gắn vào mọi prompt |
@@ -67,6 +69,10 @@ Biến môi trường cho kiểm thử: `MUSE_URL` (địa chỉ Muse giả), `M
 Phát hành: tăng `version` trong `package.json`, ghi `GHI_CHU_BAN_MOI.md` (nhắc số phiên bản), push, rồi *Actions → Phat hanh ban moi → Run workflow*. Repo phải để **public** thì app mới tự cập nhật được.
 
 ## Lịch sử
+
+### 1.4.0 (11/10/2026)
+- Mức token mỗi tài khoản: Muse không có API công khai (Cài đặt dùng Server Action `POST /settings`, mã đổi mỗi lần Muse phát hành) → đọc từ giao diện: nút dock `[data-testid=hatch-dock-more]` → mục cuối menu → `[role=dialog] [role=progressbar]` (aria-valuenow = %, khối cha 3 dòng: tên gói / ghi chú / "56% used (3B tokens left)"). Menu Radix chỉ mở bằng `pointerdown` → `bam()` bắn pointerdown+mousedown+pointerup+mouseup+click. Đã thử trên muse.ai thật ở cả khung hẹp (sheet, phải bấm mục Chung) và 1280×800 (mở thẳng Chung). Đọc trong `kiemTaiKhoan`; tự chạy khi hết hàng chờ (`hetLuot`), nút *Cập nhật token*.
+- Nút *Đặt lại* hàng đợi = Tạo lại mọi việc (không đang chạy) của dự án + loại đang xem; giữ `files` để kết quả mới ghi đè đúng file cũ thay vì sinh " (2)".
 
 ### 1.3.1 (10/10/2026) — Mac báo "Chưa đăng nhập" dù đã đăng nhập
 - Nguyên nhân: Muse hiện tiếng Việt theo ngôn ngữ máy (ô soạn tin "Nhắn tin"), mà tool dò ô nhập theo nhãn tiếng Anh `aria-label="Message"` → không thấy ô nhập, không thấy màn đăng nhập → "Chưa kiểm" / "không kiểm được (mạng?)" / "Không mở được trang Muse".

@@ -15,6 +15,7 @@
 //    đang gõ         [aria-label="Assistant is typing"]  hoặc aria-busy
 //  NHÃN aria-label ĐỔI THEO NGÔN NGỮ (máy tiếng Việt: "Nhắn tin", "Gửi"…) → mọi chỗ dò theo
 //  nhãn đều có bản tiếng Việt (NHAN) và một đường dự phòng không cần chữ.
+//    mức token       nút dock [data-testid="hatch-dock-more"] → mục cuối menu → [role=dialog] [role=progressbar]
 //  Ảnh/video nằm trong blob: cùng nguồn → fetch() lấy được file gốc, khỏi
 //  bấm nút Download.
 //
@@ -276,6 +277,50 @@
     return ra;
   }
 
-  window.__muse = { phienBan: 1, trangThai, gui, ketQua, layFile };
+  /** Bấm như người: menu Radix mở bằng pointerdown, sheet/nút thường bằng click → bắn cả hai. */
+  function bam(e) {
+    const o = { bubbles: true, cancelable: true, button: 0, pointerType: 'mouse', isPrimary: true };
+    e.dispatchEvent(new PointerEvent('pointerdown', o)); e.dispatchEvent(new MouseEvent('mousedown', o));
+    e.dispatchEvent(new PointerEvent('pointerup', o)); e.dispatchEvent(new MouseEvent('mouseup', o));
+    e.click();
+  }
+  const thanhHanMuc = () => { const t = $$('[role="dialog"] [role="progressbar"]'); return t.length ? t : null; };
+
+  /**
+   * Mức dùng token: Cài đặt → Chung → "Usage" (đo 11/10/2026). Mỗi gói một [role=progressbar]
+   * (aria-valuenow = % đã dùng); khối cha có 3 dòng: tên gói, ghi chú (ngày đặt lại…), "56% used (3B tokens left)".
+   * Mở Cài đặt bằng nút dock [data-testid=hatch-dock-more] → mục CUỐI của menu (không đọc chữ, chạy cả tiếng Việt).
+   * Gọi trong cửa sổ riêng (kiểm tài khoản) — không đóng lại, cửa sổ bị huỷ ngay sau đó.
+   */
+  async function hanMuc() {
+    await cho(() => daNap(oNhap()), 20000);
+    const nut = await cho(() => $('[data-testid="hatch-dock-more"]') || $('[data-pel-click="settings_menu_open_click"]'), 10000);
+    if (!nut) return { ok: false, loi: 'khong-thay-nut-cai-dat' };
+    bam(nut);
+    const menu = await cho(() => $$('[role="menu"],[role="dialog"]').pop(), 5000);
+    if (!menu) return { ok: false, loi: 'khong-mo-duoc-menu' };
+    if (!thanhHanMuc()) {
+      const muc = $$('[role="menuitem"],button', menu).filter((b) => String(b.innerText || '').trim());
+      if (muc.length) bam(muc.pop());
+    }
+    // Cửa sổ rộng: Cài đặt mở thẳng mục Chung. Cửa sổ hẹp: phải bấm mục đầu (Chung).
+    let thanh = await cho(thanhHanMuc, 6000);
+    if (!thanh) {
+      const o = $$('[role="dialog"]').pop();
+      const c = o && $('[data-slot="list-cell"]', o);
+      if (c) { bam(c); thanh = await cho(thanhHanMuc, 6000); }
+    }
+    if (!thanh) return { ok: false, loi: 'khong-thay-han-muc' };
+    return {
+      ok: true,
+      muc: thanh.map((b) => {
+        const dong = String(b.parentElement.innerText || '').split('\n').map((x) => x.trim()).filter(Boolean);
+        return { ten: dong[0] || '', ghiChu: dong.length > 2 ? dong[1] : '', chu: dong.length > 1 ? dong[dong.length - 1] : '',
+          phanTram: Math.max(0, Math.min(100, Number(b.getAttribute('aria-valuenow')) || 0)) };
+      })
+    };
+  }
+
+  window.__muse = { phienBan: 1, trangThai, gui, ketQua, layFile, hanMuc };
 })();
 undefined;

@@ -48,6 +48,7 @@ class QuanLyTaiKhoan {
     if (typeof thay.ten === 'string' && thay.ten.trim()) a.ten = thay.ten.trim();
     if (typeof thay.bat === 'boolean') a.bat = thay.bat;
     if (typeof thay.trangThai === 'string') a.trangThai = thay.trangThai;
+    if (thay.hanMuc && Array.isArray(thay.hanMuc.muc)) a.hanMuc = thay.hanMuc;   // mức token đọc từ Muse
     this.luu();
     return true;
   }

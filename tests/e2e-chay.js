@@ -94,6 +94,13 @@ module.exports = function e2e({ win, app, LENH, dieuPhoi }) {
       kiem(ds.every((j) => !j.taiKhoan || j.taiKhoan === 'tk-1'), 'không việc nào chạy bằng tài khoản chưa đăng nhập');
       const a2 = LENH.trangThai().taiKhoan.find((a) => a.id === tk2.id);
       kiem(a2 && a2.trangThai === 'can-dang-nhap', 'tài khoản chưa đăng nhập bị đánh dấu "Chưa đăng nhập"');
+      // Chạy hết hàng chờ → tự đọc mức token (Cài đặt của Muse: menu mở bằng pointerdown).
+      const hm1 = () => (LENH.trangThai().taiKhoan.find((a) => a.id === 'tk-1') || {}).hanMuc;
+      await cho(() => hm1(), 30000, 'tự cập nhật mức token sau khi chạy xong');
+      const h1 = hm1();
+      kiem(h1 && h1.muc.length === 2 && h1.muc[0].ten === 'Free plan' && h1.muc[0].phanTram === 56 &&
+        h1.muc[0].ghiChu === 'Weekly limit resets on Oct 16' && h1.muc[1].chu === '0% used (3B tokens left)',
+        `chạy xong → tự đọc mức token tài khoản (${JSON.stringify(h1 && h1.muc)})`);
 
       const gui = await daGui();
       kiem(gui.length === ds.length, `số lần gửi = số việc (${gui.length}/${ds.length}) — không gửi lại`);
@@ -309,8 +316,16 @@ module.exports = function e2e({ win, app, LENH, dieuPhoi }) {
       // 11) Muse giao diện tiếng Việt (máy Mac tiếng Việt): vẫn nhận đăng nhập, gửi, đính kèm, mở ảnh.
       ghi('-- 11. Muse tiếng Việt');
       const tk1 = session.fromPartition('persist:muse-tk-1');
+      await LENH.capNhatToken();     // chờ lượt cập nhật token chạy ngầm (nếu có) xong, kẻo nó ghi đè kết quả dưới
       await tk1.cookies.set({ url: process.env.MUSE_URL, name: 'muse_lang', value: 'vi' });
       kiem(await LENH.kiemTaiKhoan({ id: 'tk-1' }) === 'da-dang-nhap', 'Muse tiếng Việt: "Kiểm tra" báo đã đăng nhập');
+      const h11 = LENH.trangThai().taiKhoan.find((a) => a.id === 'tk-1').hanMuc;
+      kiem(h11 && h11.muc[1] && h11.muc[1].chu === 'Đã dùng 0% (còn 3 tỷ token)' && h11.muc[0].phanTram === 56,
+        'Muse tiếng Việt: vẫn đọc được mức token');
+      await js(`window.__diToi('taikhoan')`);
+      kiem(await choJs(`/còn 3 tỷ token/.test(document.querySelector('#dsTaiKhoan').innerText) && document.querySelector('.hm-thanh i').style.width === '56%'`, 5000, 'thẻ tài khoản hiện token'),
+        'trang Tài khoản hiện mức token + thanh %');
+      await chup('e2e-token.png');
       const gui11 = (await daGui()).length, truoc11 = viec().length;
       LENH.them({ duAn: 'mac-dinh', loai: 'anh', tyLe: '1:1', thamChieu: [anhRef], prompts: ['vi có ảnh kèm', 'LUOI vi ảnh lười'], chay: true });
       await cho(() => !dieuPhoi.dangChay && !dieuPhoi.coViecDangChay(), 60000, 'chạy xong việc tiếng Việt');
@@ -319,6 +334,24 @@ module.exports = function e2e({ win, app, LENH, dieuPhoi }) {
       kiem(v11.length === 2 && v11.every((j) => j.trangThai === 'xong' && j.files.length), 'Muse tiếng Việt: 2 việc xong, có file (kể cả ảnh lười)');
       kiem(g11.length === 2 && g11.every((g) => g.soFile === 1), 'Muse tiếng Việt: mỗi lần gửi kèm đúng 1 ảnh');
       await tk1.cookies.remove(process.env.MUSE_URL, 'muse_lang');
+
+      // 12) Đặt lại hàng đợi: mọi việc ảnh của dự án đang xem về Chờ, xoá chat cũ.
+      ghi('-- 12. Đặt lại hàng đợi');
+      await js(`window.__diToi('anh')`);
+      const duAn12 = await js(`JSON.parse(localStorage.getItem('muse-studio-ui')).duAn`);
+      const cuaDuAn = () => viec().filter((j) => j.duAn === duAn12 && j.loai === 'anh');
+      const truoc12 = cuaDuAn();
+      const chuaCho12 = truoc12.filter((j) => j.trangThai !== 'cho').length;   // đọc NGAY: các đối tượng sẽ bị sửa tại chỗ
+      const video12 = viec().filter((j) => j.loai === 'video').map((j) => j.trangThai).join();
+      ghi(`   dự án ${duAn12}: ${truoc12.length} việc ảnh (${truoc12.filter((j) => j.trangThai === 'xong').length} xong)`);
+      await js(`document.querySelector('#nutDatLai').click()`);
+      await choJs(`!!document.querySelector('#hopOk') && document.querySelector('#hopOk').offsetParent !== null`, 5000, 'hộp xác nhận đặt lại');
+      await js(`document.querySelector('#hopOk').click()`);
+      await cho(() => cuaDuAn().every((j) => j.trangThai === 'cho'), 5000, 'mọi việc về Chờ');
+      const sau12 = cuaDuAn();
+      kiem(chuaCho12 > 0 && sau12.length === truoc12.length &&
+        sau12.every((j) => j.trangThai === 'cho' && !j.thread && !j.loi && !j.vongLai), `"Đặt lại" đưa ${sau12.length} việc ảnh về Chờ, xoá chat/lỗi cũ`);
+      kiem(viec().filter((j) => j.loai === 'video').map((j) => j.trangThai).join() === video12, 'hàng đợi video không bị đụng');
     } catch (err) {
       ghi('LỖI KỊCH BẢN: ' + err.stack);
       loi.push('ngoại lệ');

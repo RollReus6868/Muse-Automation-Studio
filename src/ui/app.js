@@ -434,6 +434,23 @@
     toast(`Đã thêm ${r.so} việc${chay ? ' và bắt đầu chạy' : ' vào hàng đợi'}${ts.chuoiVideo ? ' — ảnh xong sẽ tự tạo video' : ''}`);
   }
 
+  /** Đặt lại hàng đợi đang xem (dự án + ảnh/video) về Chờ như lúc mới thêm — dùng chung "Tạo lại". */
+  async function datLaiHangDoi() {
+    const loai = loaiTrang();
+    const ds = S.viec.filter((j) => j.duAn === U.duAn && j.loai === loai);
+    const ids = ds.filter((j) => j.trangThai !== 'chay').map((j) => j.id);
+    const chay = ds.length - ids.length;
+    if (!ids.length) { toast(chay ? 'Các việc đang chạy — bấm Dừng trước rồi đặt lại' : 'Hàng đợi trống', true); return; }
+    const d = S.duAn.find((x) => x.id === U.duAn);
+    if (!(await xacNhan('Đặt lại hàng đợi?',
+      `Đưa <b>${ids.length}</b> việc ${loai === 'video' ? 'video' : 'ảnh'} của dự án <b>${esc(d ? d.ten : '')}</b> về <b>Chờ</b> như lúc mới thêm. ` +
+      'Bấm chạy là tạo lại từ đầu (gửi prompt mới); kết quả mới ghi đè file cũ cùng tên.' +
+      (chay ? `<br><br>Bỏ qua ${chay} việc đang chạy.` : ''), 'Đặt lại'))) return;
+    const n = await api.call('taoLai', { ids });
+    U.loc = 'tat';
+    toast(`Đã đặt lại ${n} việc về Chờ`);
+  }
+
   /** Nhiều file .txt → mỗi file một dự án (tên theo tên file), cùng tuỳ chọn cột Tạo, rồi chạy. */
   async function nhapNhieuFile() {
     const ds = ((await api.call('nhapNhieuFile')) || [])
@@ -536,7 +553,7 @@
       const dang = S.dangNhap && S.dangNhap.id === a.id;
       return `<div class="the-tk">
         <div class="av">${esc((a.ten || '?').trim().charAt(0).toUpperCase())}</div>
-        <div class="tt"><b>${esc(a.ten)}</b><span class="pill ${cls}">${nhan}</span>
+        <div class="tt"><b>${esc(a.ten)}</b><span class="pill ${cls}">${nhan}</span>${veHanMuc(a.hanMuc)}
           <div class="hang-nut">
             <button class="nut-vien nho" data-tk="dangNhap" data-id="${esc(a.id)}" ${dang ? 'disabled' : ''}>${ic('log-in')}Đăng nhập</button>
             <button class="nut-vien nho" data-tk="kiem" data-id="${esc(a.id)}">${ic('refresh-cw')}Kiểm tra</button>
@@ -551,6 +568,16 @@
     $('#tieuDeDangNhap').textContent = tk ? `Đăng nhập: ${tk.ten}` : 'Đăng nhập';
     $('#nutXongDangNhap').hidden = !tk;
     U.dangNhapMo = !!tk;
+  }
+  /** Mức dùng token Muse (Cài đặt → Chung → Usage), chữ giữ nguyên như Muse hiện. */
+  function veHanMuc(hm) {
+    if (!hm || !hm.muc || !hm.muc.length) return '<div class="han-muc mo">Mức token: chưa đọc (bấm Kiểm tra khi đã đăng nhập)</div>';
+    const t = new Date(hm.luc), hai = (n) => String(n).padStart(2, '0');
+    return `<div class="han-muc">${hm.muc.map((m) => `<div class="hm">
+        <div class="hm-dau"><span>${esc(m.ten)}</span><b>${esc(m.chu)}</b></div>
+        <div class="hm-thanh ${m.phanTram >= 90 ? 'do' : m.phanTram >= 70 ? 'vang' : ''}"><i style="width:${Math.max(0, Math.min(100, +m.phanTram || 0))}%"></i></div>
+        ${m.ghiChu ? `<small>${esc(m.ghiChu)}</small>` : ''}</div>`).join('')}
+      <small class="mo">Cập nhật lúc ${hai(t.getHours())}:${hai(t.getMinutes())} ngày ${hai(t.getDate())}/${hai(t.getMonth() + 1)}</small></div>`;
   }
   const khungTrinhDuyet = () => { const r = $('#oTrinhDuyet').getBoundingClientRect(); return { x: r.left, y: r.top, width: r.width, height: r.height }; };
   async function dongDangNhap() { U.dangNhapMo = false; await api.call('dongDangNhap'); }
@@ -801,6 +828,7 @@
     $('#oTim').addEventListener('input', (e) => { U.tim = e.target.value; veHang(); });
     $('#tabsLoc').onclick = (e) => { const b = e.target.closest('[data-loc]'); if (b) { U.loc = b.dataset.loc; luuUi(); veHang(); } };
     $('#nutSapXep').onclick = () => { U.moiNhat = !U.moiNhat; luuUi(); veHang(); };
+    $('#nutDatLai').onclick = datLaiHangDoi;
     $('#dsHang').addEventListener('click', (e) => {
       const dong = e.target.closest('.dong-viec');
       if (!dong) return;
@@ -857,6 +885,11 @@
     $('#dsThuVien').onclick = (e) => { const o = e.target.closest('[data-tv]'); const j = o && viecTheoId(+o.dataset.tv); if (j) moXemLon(j.files[0], j.loai); };
 
     // Tài khoản
+    $('#nutCapNhatToken').onclick = async () => {
+      const b = $('#nutCapNhatToken'); b.disabled = true;
+      toast('Đang đọc mức token của các tài khoản đang bật…');
+      try { await api.call('capNhatToken'); toast('Đã cập nhật mức token'); } finally { b.disabled = false; }
+    };
     $('#nutThemTK').onclick = async () => {
       const v = await hoi({ tieuDe: 'Thêm tài khoản Muse', html: '<label>Tên gợi nhớ<input name="ten" placeholder="vd: Muse 2"></label>', ok: 'Thêm' });
       if (!v) return;

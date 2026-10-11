@@ -182,7 +182,7 @@ async function docTrangThai(wc, ms) {
   return tt;
 }
 
-/** Kiểm đăng nhập mà không mở gì lên màn hình. */
+/** Kiểm đăng nhập (và đọc mức dùng token) mà không mở gì lên màn hình. */
 async function kiemTaiKhoan(id) {
   const tk = taiKhoan.tim(id);
   if (!tk) return null;
@@ -190,12 +190,24 @@ async function kiemTaiKhoan(id) {
   w.webContents.loadURL(GOC_MUSE).catch(() => {});
   const tt = await docTrangThai(w.webContents, 25000);
   const kq = tt && tt.coONhap ? 'da-dang-nhap' : tt && tt.canDangNhap ? 'can-dang-nhap' : 'chua-kiem';
-  taiKhoan.sua(id, { trangThai: kq });
+  const hm = kq === 'da-dang-nhap'
+    ? await w.webContents.executeJavaScript('window.__muse.hanMuc()', true).catch(() => null) : null;
+  taiKhoan.sua(id, { trangThai: kq, ...(hm && hm.ok ? { hanMuc: { luc: Date.now(), muc: hm.muc } } : {}) });
   dongCuaSoAn(w);
+  const token = hm && hm.ok ? ' · ' + hm.muc.map((m) => `${m.ten}: ${m.chu}`).join(' · ')
+    : kq === 'da-dang-nhap' ? ' (chưa đọc được mức token)' : '';
   log(kq === 'da-dang-nhap' ? 'success' : 'warning',
-    `👤 "${tk.ten}": ${kq === 'da-dang-nhap' ? 'đã đăng nhập Muse' : kq === 'can-dang-nhap' ? 'CHƯA đăng nhập' : 'không kiểm được (mạng?)'}`);
+    `👤 "${tk.ten}": ${kq === 'da-dang-nhap' ? 'đã đăng nhập Muse' : kq === 'can-dang-nhap' ? 'CHƯA đăng nhập' : 'không kiểm được (mạng?)'}${token}`);
   baoTrangThai();
   return kq;
+}
+/** Cập nhật mức token của mọi tài khoản đang bật (lần lượt; đang cập nhật thì bỏ qua lần gọi mới). */
+let dangCapNhatToken = null;
+function capNhatToken() {
+  dangCapNhatToken = dangCapNhatToken || (async () => {
+    try { for (const a of taiKhoan.dangBat()) await kiemTaiKhoan(a.id); } finally { dangCapNhatToken = null; }
+  })();
+  return dangCapNhatToken;
 }
 
 // ── File ──────────────────────────────────────────────────────────────────
@@ -264,6 +276,7 @@ const LENH = {
     baoTrangThai();
   },
   kiemTaiKhoan: ({ id }) => kiemTaiKhoan(id),
+  capNhatToken: () => capNhatToken(),
   moDangNhap: ({ id, khung }) => moDangNhap(id, khung),
   khungDangNhap: ({ khung }) => datKhungDangNhap(khung),
   dongDangNhap: () => dongDangNhap(true),
@@ -357,7 +370,8 @@ app.whenReady().then(() => {
     store, taiKhoan, taoLuong, huyLuong, docFile, ghiFile, log, bao: baoTrangThai,
     thuMucRaMacDinh: path.join(app.getPath('documents'), 'Muse Automation Studio'),
     thuMucTam: path.join(app.getPath('userData'), 'ket-qua-tam'),
-    tonTai: (p) => fs.existsSync(p)
+    tonTai: (p) => fs.existsSync(p),
+    hetLuot: () => capNhatToken()      // chạy xong hàng chờ → cập nhật mức token
   });
 
   capNhat = new BoCapNhat({

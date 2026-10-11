@@ -174,6 +174,7 @@
           <label class="chon-het" title="Chọn / bỏ chọn mọi việc đang hiện trong danh sách"><input type="checkbox" id="chonHet"><span>Chọn hết</span></label>
           <div class="tabs-loc" id="tabsLoc"></div>
           <div class="gian"></div>
+          <button class="nut-vien nho" id="nutDatLai" title="Đưa mọi việc của hàng đợi này về Chờ như lúc mới thêm"><i data-icon="rotate-ccw"></i><span>Đặt lại</span></button>
           <button class="nut-vien nho" id="nutSapXep"><i data-icon="arrow-down-up"></i><span>Mới nhất</span></button>
         </div>
         <div class="thanh-chon" id="thanhChon" hidden>
@@ -226,7 +227,10 @@
       <section class="panel cot-tk">
         <div class="panel-dau">
           <h2><i data-icon="contact"></i>Tài khoản Muse</h2>
-          <button class="nut-gradient nho" id="nutThemTK"><i data-icon="plus"></i>Thêm tài khoản</button>
+          <div class="hang-nut-dau">
+            <button class="nut-vien nho" id="nutCapNhatToken" title="Đọc lại mức dùng token của mọi tài khoản đang bật"><i data-icon="refresh-cw"></i>Cập nhật token</button>
+            <button class="nut-gradient nho" id="nutThemTK"><i data-icon="plus"></i>Thêm tài khoản</button>
+          </div>
         </div>
         <p class="mo">Mỗi tài khoản đăng nhập riêng một lần, app nhớ phiên. Tài khoản đang bật sẽ cùng chạy, mỗi tài khoản <b id="soLuongTK">3</b> luồng.</p>
         <div class="cuon" id="dsTaiKhoan"></div>
@@ -248,6 +252,7 @@
         <h2><i data-icon="book-open"></i>Hướng dẫn nhanh</h2>
         <ol>
           <li><b>Tài khoản:</b> vào mục Tài khoản → <i>Đăng nhập</i> → đăng nhập muse.ai trong khung bên phải → bấm <i>Xong</i>. Muốn chạy nhiều tài khoản thì <i>Thêm tài khoản</i> và đăng nhập từng cái.</li>
+          <li><b>Mức token:</b> mỗi thẻ tài khoản hiện mức dùng token lấy từ Muse (gói tuần + token bổ sung còn lại). Tự cập nhật mỗi khi chạy hết hàng chờ; bấm <i>Cập nhật token</i> (hoặc <i>Kiểm tra</i> ở một tài khoản) để đọc lại ngay.</li>
           <li><b>Tạo ảnh / Tạo video:</b> dán prompt (mỗi dòng một prompt), chọn tỷ lệ khung, bấm <i>Tạo &amp; chạy</i>. Mỗi prompt chạy trong một chat phụ mới của Muse nên không dính ngữ cảnh cũ.</li>
           <li><b>Ảnh tham chiếu:</b> kéo thả ảnh để gửi kèm mọi prompt. <i>Chọn thư mục</i> để gán ảnh 1 → prompt 1, ảnh 2 → prompt 2 (dùng làm khung đầu khi tạo video từ ảnh).</li>
           <li><b>Nhân vật:</b> lưu ảnh nhân vật kèm tên. Bật <i>Giữ nguyên nhân vật</i>, prompt nhắc tên nào thì tự gửi ảnh nhân vật đó. Chế độ <i>Người mẫu</i>: chọn nhân vật gắn vào mọi prompt.</li>
@@ -261,6 +266,7 @@
           <li><b>Nhiều file .txt:</b> bấm <i>Nhập nhiều file .txt</i>, chọn cả loạt — mỗi file thành một dự án mang tên file, dùng chung tuỳ chọn đang chọn ở cột Tạo, rồi tự chạy.</li>
           <li><b>Dừng giữa chừng</b> không mất lượt: chạy lại, tool mở lại đúng chat cũ để lấy kết quả chứ không gửi lại prompt.</li>
           <li><b>Muse trả lời chữ thay vì ảnh</b> (hỏi lại, từ chối): dòng đó báo lỗi kèm câu Muse nói. Sửa prompt rồi bấm <i>Tạo lại</i>.</li>
+          <li><b>Đặt lại hàng đợi:</b> nút <i>Đặt lại</i> trên hàng đợi đưa mọi việc của dự án đang xem (trang ảnh hoặc video) về <i>Chờ</i> như lúc mới thêm; bấm chạy là tạo lại từ đầu, kết quả mới ghi đè file cũ cùng tên.</li>
           <li><b>Lỗi lạ:</b> Cài đặt → bật <i>Hiện các luồng chạy ngầm</i> để nhìn thấy trang Muse của từng luồng; nhật ký đầy đủ ở thư mục dữ liệu (<code>nhat-ky.txt</code>).</li>
         </ol>
       </section>

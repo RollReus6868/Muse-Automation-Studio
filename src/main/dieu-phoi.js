@@ -309,6 +309,7 @@ class DieuPhoi {
       this.dangChay = false;
       this.log('success', '✅ [HỆ THỐNG] Đã chạy hết hàng chờ.');
       this.o.bao();
+      if (this.o.hetLuot) this.o.hetLuot();
     } else if (!this.luong.length) {
       this.dangChay = false;
       this.log('error', '⛔ Không còn tài khoản nào dùng được (chưa đăng nhập?) — đã dừng.');

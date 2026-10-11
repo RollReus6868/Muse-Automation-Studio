@@ -1,5 +1,4 @@
-# Muse Automation Studio 1.3.1
+# Muse Automation Studio 1.4.0
 
-- **Sửa lỗi macOS báo "Chưa đăng nhập" dù đã đăng nhập**: trên máy dùng tiếng Việt, Muse hiện giao diện tiếng Việt ("Nhắn tin", "Gửi"…) nên tool không nhận ra ô soạn tin. Nay tool hiểu cả giao diện tiếng Việt lẫn tiếng Anh: "Kiểm tra" báo đúng đã đăng nhập, chạy gửi prompt / đính kèm ảnh / tải ảnh bình thường.
-- **Tạo video từ thư mục ảnh** có ô **Prompt dùng chung** riêng: chọn thư mục → gõ prompt vào ô này → mọi ảnh dùng chung prompt đó.
-- Nút **Nhật ký** (góc dưới trái) to, dễ thấy hơn; có số đỏ báo số lỗi mới từ lần xem trước.
+- **Xem mức token của từng tài khoản**: trang Tài khoản hiện mức dùng token lấy thẳng từ Muse — gói tuần (bao nhiêu % đã dùng, ngày đặt lại) và token bổ sung còn lại. Tự cập nhật mỗi khi chạy hết hàng chờ; bấm **Cập nhật token** để đọc lại ngay.
+- **Đặt lại hàng đợi**: nút **Đặt lại** trên hàng đợi đưa mọi việc của dự án đang xem về **Chờ** như lúc mới thêm. Bấm chạy là tạo lại từ đầu; kết quả mới ghi đè file cũ cùng tên.
