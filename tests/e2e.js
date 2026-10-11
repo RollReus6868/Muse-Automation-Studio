@@ -12,6 +12,9 @@ const daGui = [];
 const sv = http.createServer((req, res) => {
   if (req.method === 'POST' && req.url === '/__gui') {
     let b = '';
+    // Giải mã UTF-8 theo luồng: cộng thẳng Buffer làm vỡ ký tự tiếng Việt nằm vắt qua hai gói mạng
+    // (macOS chia gói khác Linux → prompt dài bị đổi vài ký tự, chỉ đỏ trên CI Mac).
+    req.setEncoding('utf8');
     req.on('data', (d) => { b += d; });
     req.on('end', () => { try { daGui.push({ ...JSON.parse(b), luc: Date.now() }); } catch (_) {} res.end('ok'); });
     return;
