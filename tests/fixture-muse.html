@@ -44,29 +44,37 @@ function veDangNhap() {
     : '<main><h1>Muse, AI that gets it done for you</h1><p>Log in or create an account</p><input placeholder="Mobile number or email"><button>Continue</button></main>';
 }
 
+// data-pel-click: mã đo lường của Muse, không đổi theo ngôn ngữ. Bản tiếng Việt CỐ Ý bỏ để ép
+// trình trợ giúp đi đường dự phòng (nhãn / nút mới / ảnh thu nhỏ).
+const pel = (ma) => (VI ? '' : `data-pel-click="${ma}"`);
+
 function veKhung(tinHtml) {
+  // Như Muse thật (đo 12/10/2026): KHÔNG có <form>; input file nằm trong div bọc sát ô nhập, ảnh thu
+  // nhỏ + nút gỡ ở tổ tiên cấp 2, nút đính kèm + Send ở cấp 3. Send hiện khi có chữ HOẶC có tệp.
   // Như Muse thật (đo 10/10/2026): ô nhập "tạm" (data-hatch-composer-prehydration-input) có ngay,
   // nhưng phần điều khiển chỉ được gắn khi trang ĐANG HIỆN (requestAnimationFrame chạy): trang ẩn
   // thì không bao giờ có nút Send. Nút Send chỉ xuất hiện khi ô nhập có chữ.
   goc.innerHTML = `
     <div role="log" aria-label="Chat messages">${tinHtml || ''}</div>
     <svg role="status" aria-label="Loading" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg>
-    <button type="button" data-testid="hatch-dock-more" aria-label="${L.caiDat}">⚙</button>
-    <form onsubmit="return false">
-      <div id="dinhKem"></div>
-      <textarea aria-label="${L.o}" placeholder="${L.o}" data-hatch-composer-prehydration-input="true"></textarea>
-      <button aria-label="Attach file" type="submit"></button><input type="file" multiple hidden>
+    <button type="button" data-testid="hatch-dock-more" data-pel-click="settings_menu_open_click" aria-label="${L.caiDat}">⚙</button>
+    <div class="khung-soan">
+      <div>
+        <div id="dinhKem"></div>
+        <div><textarea aria-label="${L.o}" placeholder="${L.o}" data-hatch-composer-prehydration-input="true"></textarea><input type="file" multiple hidden></div>
+      </div>
+      <button aria-label="Attach file" ${pel('chat_tap_attachment')} type="button"></button>
       <span id="choNutGui"></span>
-    </form>`;
+    </div>`;
   const ta = document.querySelector('textarea');
   const inp = document.querySelector('input[type=file]');
   requestAnimationFrame(() => requestAnimationFrame(() => {
     ta['__reactFiber$gia'] = {};           // dấu "đã hydrate" giống React
     const veNut = () => {
-      const co = !!ta.value.trim();
+      const co = !!ta.value.trim() || !!(inp.files && inp.files.length);
       const nut = document.querySelector('#choNutGui button');
       if (co && !nut) {
-        document.getElementById('choNutGui').innerHTML = `<button aria-label="${L.gui}" type="button">↑</button>`;
+        document.getElementById('choNutGui').innerHTML = `<button aria-label="${L.gui}" ${pel('chat_send_message')} type="button">↑</button>`;
         document.querySelector('#choNutGui button').addEventListener('click', () => guiTin(ta.value, inp.files ? inp.files.length : 0));
       } else if (!co && nut) nut.remove();
     };
@@ -76,7 +84,8 @@ function veKhung(tinHtml) {
     inp.addEventListener('change', () => {
       document.getElementById('dinhKem').innerHTML = Array.from(inp.files).map((f) => VI
         ? `<span><img src="${URL.createObjectURL(f)}" width="24"><button aria-label="${L.go}" type="button">x</button></span>`
-        : `<span>${f.name}<button aria-label="${L.go}" type="button">x</button></span>`).join('');
+        : `<span><img src="${URL.createObjectURL(f)}" width="24"><button aria-label="${L.go}" ${pel('chat_remove_attachment_click')} type="button">x</button></span>`).join('');
+      veNut();
     });
   }));
 }

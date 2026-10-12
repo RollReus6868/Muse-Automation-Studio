@@ -353,7 +353,7 @@ test('mọi icon dùng đều có trong icons.js', () => {
 test('trang giả dùng đúng các thuộc tính trình trợ giúp dò (giữ hai bên khớp nhau)', () => {
   const tro = docNguon('src/inject/muse-trang.js', true);
   const gia = docNguon('tests/fixture-muse.html', true);
-  const chuoi = new Set([...tro.matchAll(/(aria-label|data-testid|data-message-role)="([^"]+)"|\[(data-hatch-[\w-]+)\]/g)].map((m) => m[2] || m[3]));
+  const chuoi = new Set([...tro.matchAll(/(aria-label|data-testid|data-message-role|data-pel-click)="([^"]+)"|\[(data-hatch-[\w-]+)\]/g)].map((m) => m[2] || m[3]));
   assert.ok(chuoi.size >= 7, `chỉ thấy ${chuoi.size}`);
   assert.deepStrictEqual([...chuoi].filter((c) => !gia.includes(c)), []);
 });

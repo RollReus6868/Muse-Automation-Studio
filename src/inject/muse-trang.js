@@ -6,8 +6,11 @@
 //
 //  Dò bằng thuộc tính ỔN ĐỊNH Muse tự gắn (đo ngày 10/10/2026):
 //    ô nhập          textarea[data-hatch-composer-prehydration-input]  (aria-label "Message")
-//    nút gửi         button aria-label "Send" — hoặc nút MỚI hiện ở khung soạn sau khi gõ chữ
-//    đính kèm        input[type=file]  (multiple)  → nút "Remove attachment" / ảnh thu nhỏ
+//    nút gửi         [data-pel-click="chat_send_message"] → nhãn "Send" → nút MỚI hiện ở khung soạn
+//    đính kèm        input[type=file]  (multiple)  → nút gỡ [data-pel-click="chat_remove_attachment_click"]
+//                    (nhãn "Remove attachment") / ảnh thu nhỏ. Đo 12/10/2026: Muse KHÔNG có <form>;
+//                    input file nằm sát ô nhập, ảnh thu nhỏ + nút gỡ ở tổ tiên cấp 2, nút đính kèm
+//                    [data-pel-click="chat_tap_attachment"] + Send ở cấp 3.
 //    tin của Muse    [data-message-role="assistant"]
 //    khung ảnh       [data-testid="hatch-chat-attachment-presentation-image"]
 //    khung video     [data-testid="hatch-chat-attachment-presentation-video"]
@@ -51,14 +54,22 @@
   const nhan = (e) => String((e && e.getAttribute('aria-label')) || '').trim();
   const nutTheoNhan = (re, goc) => $$('button[aria-label]', goc).filter((b) => re.test(nhan(b)));
 
+  // data-pel-click (mã đo lường của Muse) KHÔNG đổi theo ngôn ngữ → dò bằng nó trước, nhãn sau.
+  const NUT = {
+    gui: '[data-pel-click="chat_send_message"]',
+    goDinhKem: '[data-pel-click="chat_remove_attachment_click"]',
+    dinhKem: '[data-pel-click="chat_tap_attachment"]'
+  };
   const oNhap = () => $('textarea[data-hatch-composer-prehydration-input]') ||
     $('textarea[aria-label="Message"],textarea[aria-label="Nhắn tin"]') || $('textarea');
-  /** Khung soạn tin: tổ tiên gần nhất của ô nhập có chứa nút (nút gửi, đính kèm). */
+  /** Khung soạn tin: tổ tiên gần nhất của ô nhập chứa cả input file LẪN nút (nút đính kèm/gửi).
+   *  Chỉ "chứa input file" là chưa đủ: trên Muse thật đó là div bọc sát ô nhập, không có nút
+   *  gỡ tệp lẫn ảnh thu nhỏ (lỗi 1.3.1–1.4.0: "không đính kèm được ảnh"). */
   function khungSoan(ta) {
     let e = ta;
-    for (let i = 0; e && i < 6; i++) {
+    for (let i = 0; e && i < 10; i++) {
       e = e.parentElement;
-      if (e && (e.tagName === 'FORM' || $('input[type="file"]', e))) return e;
+      if (e && (e.tagName === 'FORM' || $(NUT.dinhKem, e) || ($('input[type="file"]', e) && $('button', e)))) return e;
     }
     return (ta && ta.closest('form')) || (ta && ta.parentElement && ta.parentElement.parentElement) || document.body;
   }
@@ -119,25 +130,27 @@
       if (!ta) return { ok: false, loi: 'khong-thay-o-nhap' };
     }
 
+    const k = khungSoan(ta);
+    // Nút có sẵn TRƯỚC khi đính kèm/gõ: nút Gửi là nút MỚI hiện ra sau đó (khi không đọc được nhãn).
+    // Muse hiện nút Send ngay khi có ảnh đính kèm → phải ghi tập nút trước bước đính kèm.
+    const nutCu = new Set($$('button', k));
     const files = (p.files || []);
     if (files.length) {
       const inp = $('input[type="file"]');
       if (!inp) return { ok: false, loi: 'khong-thay-o-dinh-kem' };
+      const nutGo = () => Math.max($$(NUT.goDinhKem).length, nutTheoNhan(NHAN.goDinhKem, k).length);
       const dt = new DataTransfer();
       for (const f of files) dt.items.add(b64SangFile(f));
       inp.files = dt.files;
-      const k = khungSoan(ta);
       const soAnhTruoc = $$('img', k).length;
       inp.dispatchEvent(new Event('change', { bubbles: true }));
       // Đính kèm xong = có đủ nút gỡ tệp, hoặc (nhãn lạ) khung soạn có thêm đủ ảnh thu nhỏ.
-      const du = await cho(() => nutTheoNhan(NHAN.goDinhKem, k).length >= files.length ||
+      const du = await cho(() => nutGo() >= files.length ||
         $$('img', k).length >= soAnhTruoc + files.length, 20000);
       if (!du) return { ok: false, loi: 'khong-dinh-kem-duoc', chu: chuLoiTrenTrang() };
       await ngu(800);
     }
 
-    // Nút có sẵn trước khi gõ: nút Gửi là nút MỚI hiện ra sau khi có chữ (khi không đọc được nhãn).
-    const nutCu = new Set($$('button', khungSoan(ta)));
     // React giữ giá trị riêng: phải gán qua setter gốc rồi bắn sự kiện input.
     const datGiaTri = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set;
     datGiaTri.call(ta, p.text);
@@ -153,10 +166,11 @@
 
     // Ảnh đang tải lên thì nút gửi tắt — chờ, đừng bấm vào nút chết.
     const nutGui = () => {
-      const k = khungSoan(ta);
+      const theoMa = $(NUT.gui, k) || $(NUT.gui);
+      if (theoMa) return theoMa;
       const theoNhan = nutTheoNhan(NHAN.gui, k).concat(nutTheoNhan(NHAN.gui));
       if (theoNhan.length) return theoNhan[0];
-      return $$('button', k).filter((b) => !nutCu.has(b)).pop() || $('button[type="submit"]', k);
+      return $$('button', k).filter((b) => !nutCu.has(b) && !NHAN.goDinhKem.test(nhan(b))).pop() || $('button[type="submit"]', k);
     };
     const nut = await cho(() => { const b = nutGui(); return b && !b.disabled ? b : null; }, 60000);
     if (!nut) return { ok: false, loi: 'nut-gui-bi-tat', chu: chuLoiTrenTrang() };

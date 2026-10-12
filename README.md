@@ -70,6 +70,11 @@ Phát hành: tăng `version` trong `package.json`, ghi `GHI_CHU_BAN_MOI.md` (nh�
 
 ## Lịch sử
 
+### 1.4.1 (12/10/2026) — "Gửi prompt hỏng: không đính kèm được ảnh"
+- Nguyên nhân: từ 1.3.1, `khungSoan()` lấy tổ tiên GẦN NHẤT của ô nhập có chứa `input[type=file]`, rồi chỉ tìm nút gỡ tệp / ảnh thu nhỏ trong đó. Trên muse.ai thật (đo 12/10/2026) không có `<form>`: input file nằm trong div bọc sát ô nhập (0 nút, 0 ảnh); ảnh thu nhỏ + "Remove attachment" ở tổ tiên cấp 2, nút đính kèm + Send ở cấp 3 → Muse đã nhận ảnh mà tool chờ 20 s rồi báo lỗi. Bản 1.3.0 đếm "Remove attachment" trên cả trang nên không bị.
+- Vì sao lần trước không bắt được: trang giả bọc ô nhập, input file, ảnh thu nhỏ và nút trong cùng một `<form>` — khác cấu trúc Muse thật, nên "tổ tiên gần nhất có input file" tình cờ là cả khung soạn.
+- Sửa: dò theo `data-pel-click` (mã đo lường của Muse, không đổi theo ngôn ngữ): `chat_send_message`, `chat_remove_attachment_click`, `chat_tap_attachment`; khung soạn = tổ tiên chứa nút đính kèm (hoặc input file + nút); tập nút cũ ghi TRƯỚC khi đính kèm (Muse hiện Send ngay khi có tệp). Trang giả dựng lại đúng cấu trúc thật (bản tiếng Việt bỏ `data-pel-click` để ép đường dự phòng); helper 1.4.0 chạy trên trang giả mới ra đúng "không đính kèm được ảnh".
+
 ### 1.4.0 (11/10/2026)
 - Mức token mỗi tài khoản: Muse không có API công khai (Cài đặt dùng Server Action `POST /settings`, mã đổi mỗi lần Muse phát hành) → đọc từ giao diện: nút dock `[data-testid=hatch-dock-more]` → mục cuối menu → `[role=dialog] [role=progressbar]` (aria-valuenow = %, khối cha 3 dòng: tên gói / ghi chú / "56% used (3B tokens left)"). Menu Radix chỉ mở bằng `pointerdown` → `bam()` bắn pointerdown+mousedown+pointerup+mouseup+click. Đã thử trên muse.ai thật ở cả khung hẹp (sheet, phải bấm mục Chung) và 1280×800 (mở thẳng Chung). Đọc trong `kiemTaiKhoan`; tự chạy khi hết hàng chờ (`hetLuot`), nút *Cập nhật token*.
 - Nút *Đặt lại* hàng đợi = Tạo lại mọi việc (không đang chạy) của dự án + loại đang xem; giữ `files` để kết quả mới ghi đè đúng file cũ thay vì sinh " (2)".

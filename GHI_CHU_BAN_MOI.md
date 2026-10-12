@@ -1,4 +1,4 @@
-# Muse Automation Studio 1.4.0
+# Muse Automation Studio 1.4.1
 
-- **Xem mức token của từng tài khoản**: trang Tài khoản hiện mức dùng token lấy thẳng từ Muse — gói tuần (bao nhiêu % đã dùng, ngày đặt lại) và token bổ sung còn lại. Tự cập nhật mỗi khi chạy hết hàng chờ; bấm **Cập nhật token** để đọc lại ngay.
-- **Đặt lại hàng đợi**: nút **Đặt lại** trên hàng đợi đưa mọi việc của dự án đang xem về **Chờ** như lúc mới thêm. Bấm chạy là tạo lại từ đầu; kết quả mới ghi đè file cũ cùng tên.
+- **Sửa lỗi "Gửi prompt hỏng: không đính kèm được ảnh"** (bản 1.3.1–1.4.0): Muse đã nhận ảnh nhưng tool không nhìn thấy nên báo lỗi — mọi việc có ảnh (tạo video từ ảnh, từ thư mục ảnh, ảnh tham chiếu, nhân vật) đều hỏng. Nay tool nhận ra ảnh đính kèm và nút Gửi theo mã cố định của Muse, chạy cả khi Muse hiện tiếng Việt.
+- Việc đã lỗi: bấm **Đặt lại** (hoặc chọn hết → Tạo lại) rồi **Chạy tất cả**.
