@@ -210,6 +210,45 @@ function capNhatToken() {
   return dangCapNhatToken;
 }
 
+/**
+ * Xoá đoạn chat trên Muse của một tài khoản (cửa sổ ẩn riêng).
+ * @param threads  [url…] chỉ xoá các chat đó; bỏ trống → xoá MỌI chat phụ ("Main chat" Muse không cho xoá).
+ */
+let dangXoaChat = false;
+async function xoaChat(id, threads) {
+  const tk = taiKhoan.tim(id);
+  if (!tk) return { ok: false, loi: 'Không tìm thấy tài khoản' };
+  if (dangXoaChat) return { ok: false, loi: 'Đang xoá chat — đợi xong đã' };
+  if (!threads && dieuPhoi.coViecDangChay()) return { ok: false, loi: 'Đang chạy hàng chờ — bấm Dừng trước khi xoá toàn bộ chat' };
+  dangXoaChat = true;
+  const w = taoCuaSoAn(tk, 'Muse · xoá đoạn chat');
+  const wc = w.webContents;
+  const mo = async (url) => { wc.loadURL(url).catch(() => {}); const tt = await docTrangThai(wc, 25000); return !!(tt && tt.coONhap); };
+  let da = 0, hong = 0;
+  try {
+    if (threads) {
+      for (const url of threads) {
+        const r = (await mo(url)) ? await wc.executeJavaScript('window.__muse.xoaChatDangMo()', true).catch(() => null) : null;
+        if (r && r.ok) da++; else hong++;
+      }
+    } else {
+      if (!(await mo(GOC_MUSE))) return { ok: false, loi: 'Không mở được Muse (chưa đăng nhập?)' };
+      for (;;) {
+        const r = await wc.executeJavaScript('window.__muse.xoaNhieuChat({ toiDa: 10 })', true).catch(() => null);
+        if (r) da += r.da;
+        if (!r || !r.ok) { hong++; break; }
+        if (!r.da) break;
+        log('info', `🗑 "${tk.ten}": đã xoá ${da} đoạn chat…`);
+      }
+    }
+  } finally {
+    dongCuaSoAn(w);
+    dangXoaChat = false;
+  }
+  log(hong ? 'warning' : 'success', `🗑 "${tk.ten}": đã xoá ${da} đoạn chat trên Muse${hong ? ` · ${hong} không xoá được` : ''}`);
+  return { ok: true, da, hong };
+}
+
 // ── File ──────────────────────────────────────────────────────────────────
 function docFile(p) {
   const duoi = path.extname(p).slice(1).toLowerCase();
@@ -277,6 +316,19 @@ const LENH = {
   },
   kiemTaiKhoan: ({ id }) => kiemTaiKhoan(id),
   capNhatToken: () => capNhatToken(),
+  xoaChatTaiKhoan: ({ id }) => xoaChat(id),
+  /** Xoá chat Muse của các việc đã chọn (việc nào còn đường dẫn chat). */
+  xoaChatViec: async ({ ids }) => {
+    const ds = dieuPhoi.viec.filter((j) => ids.includes(j.id) && j.thread && j.taiKhoan && j.trangThai !== 'chay');
+    let da = 0, hong = 0;
+    for (const tkId of new Set(ds.map((j) => j.taiKhoan))) {
+      const r = await xoaChat(tkId, ds.filter((j) => j.taiKhoan === tkId).map((j) => j.thread));
+      if (!r.ok) return r;
+      da += r.da; hong += r.hong;
+    }
+    dieuPhoi.boThread(ds.map((j) => j.id));
+    return { ok: true, da, hong, boQua: ids.length - ds.length };
+  },
   moDangNhap: ({ id, khung }) => moDangNhap(id, khung),
   khungDangNhap: ({ khung }) => datKhungDangNhap(khung),
   dongDangNhap: () => dongDangNhap(true),

@@ -180,6 +180,7 @@
         <div class="thanh-chon" id="thanhChon" hidden>
           <span id="soChon">0 đã chọn</span>
           <button class="nut-vien nho" id="chonChayLai"><i data-icon="rotate-ccw"></i>Tạo lại</button>
+          <button class="nut-vien nho" id="chonXoaChat" title="Xoá đoạn chat trên muse.ai của các việc đã chọn"><i data-icon="message-square-x"></i>Xoá chat Muse</button>
           <button class="nut-vien nho do" id="chonXoa"><i data-icon="trash-2"></i>Xoá</button>
           <button class="nut-vien nho" id="chonBo"><i data-icon="x"></i>Bỏ chọn</button>
         </div>
@@ -266,6 +267,8 @@
           <li><b>Nhiều file .txt:</b> bấm <i>Nhập nhiều file .txt</i>, chọn cả loạt — mỗi file thành một dự án mang tên file, dùng chung tuỳ chọn đang chọn ở cột Tạo, rồi tự chạy.</li>
           <li><b>Dừng giữa chừng</b> không mất lượt: chạy lại, tool mở lại đúng chat cũ để lấy kết quả chứ không gửi lại prompt.</li>
           <li><b>Muse trả lời chữ thay vì ảnh</b> (hỏi lại, từ chối): dòng đó báo lỗi kèm câu Muse nói. Sửa prompt rồi bấm <i>Tạo lại</i>.</li>
+          <li><b>Xoá đoạn chat trên Muse:</b> nút <i>Xoá chat</i> ở thẻ tài khoản xoá MỌI đoạn chat phụ của tài khoản đó trên muse.ai (phải bấm Dừng trước). Muốn xoá một số: chọn việc ở hàng đợi → <i>Xoá chat Muse</i>. Không khôi phục được; file đã tải về vẫn giữ.</li>
+          <li><b>Muse "Connecting...":</b> Muse mất kết nối thì không tải được chat/ảnh/video. Tool tự <i>tạm dừng</i> hàng chờ (không phí lượt); khi muse.ai hết "Connecting..." bấm <i>Chạy tất cả</i>.</li>
           <li><b>Đặt lại hàng đợi:</b> nút <i>Đặt lại</i> trên hàng đợi đưa mọi việc của dự án đang xem (trang ảnh hoặc video) về <i>Chờ</i> như lúc mới thêm; bấm chạy là tạo lại từ đầu, kết quả mới ghi đè file cũ cùng tên.</li>
           <li><b>Lỗi lạ:</b> Cài đặt → bật <i>Hiện các luồng chạy ngầm</i> để nhìn thấy trang Muse của từng luồng; nhật ký đầy đủ ở thư mục dữ liệu (<code>nhat-ky.txt</code>).</li>
         </ol>

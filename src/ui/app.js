@@ -557,6 +557,7 @@
           <div class="hang-nut">
             <button class="nut-vien nho" data-tk="dangNhap" data-id="${esc(a.id)}" ${dang ? 'disabled' : ''}>${ic('log-in')}Đăng nhập</button>
             <button class="nut-vien nho" data-tk="kiem" data-id="${esc(a.id)}">${ic('refresh-cw')}Kiểm tra</button>
+            <button class="nut-vien nho" data-tk="xoaChat" data-id="${esc(a.id)}" title="Xoá toàn bộ đoạn chat của tài khoản này trên Muse">${ic('message-square-x')}Xoá chat</button>
             <button class="nut-vien nho" data-tk="doiTen" data-id="${esc(a.id)}">${ic('pencil')}</button>
             <button class="nut-vien nho" data-tk="dangXuat" data-id="${esc(a.id)}" title="Đăng xuất">${ic('log-out')}</button>
             <button class="nut-vien nho do" data-tk="xoa" data-id="${esc(a.id)}" title="Xoá">${ic('trash-2')}</button>
@@ -587,7 +588,12 @@
     if (!a) return;
     if (lenh === 'dangNhap') { U.dangNhapMo = true; await api.call('moDangNhap', { id, khung: khungTrinhDuyet() }); }
     else if (lenh === 'kiem') { toast(`Đang kiểm "${a.ten}"…`); const r = await api.call('kiemTaiKhoan', { id }); toast(r === 'da-dang-nhap' ? `"${a.ten}" đã đăng nhập` : `"${a.ten}" chưa đăng nhập`, r !== 'da-dang-nhap'); }
-    else if (lenh === 'doiTen') {
+    else if (lenh === 'xoaChat') {
+      if (!await xacNhan('Xoá toàn bộ đoạn chat trên Muse?', `Xoá MỌI đoạn chat phụ của "${esc(a.ten)}" trên muse.ai (không khôi phục được; "Main chat" Muse không cho xoá). File ảnh/video đã tải về máy vẫn giữ. Muốn xoá một số chat: chọn việc ở hàng đợi → <b>Xoá chat Muse</b>.`, 'Xoá hết', true)) return;
+      toast(`Đang xoá chat của "${a.ten}"… (xem Nhật ký)`);
+      const r = await api.call('xoaChatTaiKhoan', { id });
+      toast(r && r.ok ? `Đã xoá ${r.da} đoạn chat${r.hong ? ` · ${r.hong} không xoá được` : ''}` : (r && r.loi) || 'Không xoá được', !(r && r.ok) || !!r.hong);
+    } else if (lenh === 'doiTen') {
       const v = await hoi({ tieuDe: 'Đổi tên tài khoản', html: `<label>Tên<input name="ten" value="${esc(a.ten)}"></label>`, ok: 'Lưu' });
       if (v && v.ten.trim()) api.call('suaTaiKhoan', { id, thay: { ten: v.ten } });
     } else if (lenh === 'dangXuat') {
@@ -851,6 +857,14 @@
       if (await xacNhan('Xoá các việc đã chọn?', `Xoá ${ids.length} việc khỏi hàng đợi (file đã tải vẫn giữ).`, 'Xoá', true)) {
         await api.call('xoaViec', { ids }); U.chon.clear();
       }
+    };
+    $('#chonXoaChat').onclick = async () => {
+      const ids = [...U.chon];
+      if (!await xacNhan('Xoá chat Muse của các việc đã chọn?', `Xoá đoạn chat trên muse.ai của ${ids.length} việc đã chọn (không khôi phục được). Việc và file đã tải vẫn giữ.`, 'Xoá chat', true)) return;
+      toast('Đang xoá chat trên Muse… (xem Nhật ký)');
+      const r = await api.call('xoaChatViec', { ids });
+      U.chon.clear(); veHang();
+      toast(r && r.ok ? `Đã xoá ${r.da} đoạn chat${r.hong ? ` · ${r.hong} không xoá được` : ''}${r.boQua ? ` · ${r.boQua} việc không có chat` : ''}` : (r && r.loi) || 'Không xoá được', !(r && r.ok) || !!r.hong);
     };
     $('#chonChayLai').onclick = async () => {
       const n = await api.call('taoLai', { ids: [...U.chon] });

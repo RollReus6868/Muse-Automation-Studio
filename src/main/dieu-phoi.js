@@ -167,6 +167,12 @@ class DieuPhoi {
     this.log('info', `🎬 Ảnh #${j.so} xong → thêm video #${v.so} từ ảnh đó`);
   }
 
+  /** Bỏ đường dẫn chat Muse của các việc (chat đã bị xoá trên Muse). */
+  boThread(ids) {
+    for (const j of this.viec) if (ids.includes(j.id) && j.trangThai !== 'chay') j.thread = '';
+    this.luu();
+  }
+
   /** Tạo lại: về hàng chờ, xoá chat cũ (gửi lại prompt mới tinh). */
   taoLai(ids) {
     let n = 0;
@@ -376,6 +382,16 @@ class DieuPhoi {
     } else if (r.dung) {
       Object.assign(j, { trangThai: 'cho', buoc: '' });
       if (!r.giuThread) j.thread = '';
+    } else if (r.matKetNoi) {
+      // Không tính là lần thử: Muse hỏng chứ không phải việc hỏng. Dừng cả hàng chờ cho khỏi phí lượt.
+      Object.assign(j, { trangThai: 'cho', buoc: '', loi: r.loi });
+      if (!r.giuThread) j.thread = '';
+      if (this.dangChay) {
+        this.dangChay = false;
+        for (const x of this.luong) x.luong.dung();
+        this.log('error', `⏸ ${tk ? `"${tk.ten}": ` : ''}${r.loi}. Muse không tải được chat/ảnh/video nên đã TẠM DỪNG hàng chờ (không phí lượt). ` +
+          'Mở muse.ai xem: khi hết "Connecting..." bấm Chạy tất cả — việc đã gửi sẽ lấy tiếp kết quả từ chat cũ.');
+      }
     } else if (r.canDangNhap) {
       Object.assign(j, { trangThai: 'cho', buoc: '' });
       if (!r.giuThread) j.thread = '';

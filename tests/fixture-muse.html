@@ -14,7 +14,11 @@
   Chưa có cookie muse_login=1 → hiện màn đăng nhập.
   Cookie muse_lang=vi → giao diện tiếng Việt (như Muse trên máy Mac tiếng Việt). Vài nhãn CỐ Ý lạ
   (nút gửi, nút gỡ tệp, màn đăng nhập) để kiểm đường dự phòng không cần đọc chữ của muse-trang.js.
-  Mỗi lần gửi báo về máy chủ kiểm thử: POST /__gui {prompt, soFile, thread, t0}; mở chat: GET /__thread/<id>.
+  Cookie muse_matketnoi=1 → Muse kẹt "Connecting..." (mất kết nối máy ảo, như 12/10/2026): chat không nạp.
+  Danh sách chat phụ bên trái (như Muse 12/10/2026): hàng [data-testid=hatch-thread-row], nút ⋯ TRONG hàng
+  mở menu bằng pointerdown; click nổi lên hàng thì chuyển sang chat đó (như thật). Xoá → hộp xác nhận.
+  Mỗi lần gửi báo về máy chủ kiểm thử: POST /__gui {prompt, soFile, thread, t0}; mở chat: GET /__thread/<id>;
+  danh sách chat: GET /__ds-thread; xoá chat: POST /__xoa {thread}.
 -->
 <div id="goc"></div>
 <script>
@@ -22,6 +26,7 @@ const goc = document.getElementById('goc');
 const ngu = (ms) => new Promise((r) => setTimeout(r, ms));
 const daDangNhap = document.cookie.includes('muse_login=1');
 const VI = document.cookie.includes('muse_lang=vi');
+const MAT = document.cookie.includes('muse_matketnoi=1');
 const L = VI
   ? { o: 'Nhắn tin', gui: 'Đẩy đi', go: 'Hủy tệp', dangGo: 'Trợ lý đang nhập', mo: 'Mở ảnh đã tạo', dong: 'Đóng', caiDat: 'Cài đặt',
       menu: ['Phím tắt', 'Báo lỗi', 'Cài đặt'],
@@ -57,6 +62,8 @@ function veKhung(tinHtml) {
   goc.innerHTML = `
     <div role="log" aria-label="Chat messages">${tinHtml || ''}</div>
     <svg role="status" aria-label="Loading" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg>
+    <div data-testid="hatch-side-chats-panel-content"><div id="dsChat"></div><div data-testid="active-side-chat-load-more-sentinel"></div></div>
+    <div data-pel-impression="status_limit_reached_impression"><span><span title="${MAT ? 'Connecting...' : 'Connected'}">${MAT ? 'Connecting...' : 'Connected'}</span></span></div>
     <button type="button" data-testid="hatch-dock-more" data-pel-click="settings_menu_open_click" aria-label="${L.caiDat}">⚙</button>
     <div class="khung-soan">
       <div>
@@ -68,6 +75,7 @@ function veKhung(tinHtml) {
     </div>`;
   const ta = document.querySelector('textarea');
   const inp = document.querySelector('input[type=file]');
+  veDsChat();
   requestAnimationFrame(() => requestAnimationFrame(() => {
     ta['__reactFiber$gia'] = {};           // dấu "đã hydrate" giống React
     const veNut = () => {
@@ -105,6 +113,41 @@ function moMenu() {
   document.body.appendChild(m);
 }
 
+async function veDsChat() {
+  let ds = [];
+  try { ds = await (await fetch('/__ds-thread')).json(); } catch (_) {}
+  const o = document.getElementById('dsChat');
+  if (!o) return;
+  const dangMo = (location.pathname.match(/\/thread\/([^/]+)$/) || [])[1];
+  o.innerHTML = '<div data-testid="hatch-thread-row" role="button">Main chat</div>' + ds.map((t) =>
+    `<div data-testid="hatch-thread-row" role="button" data-id="${t.thread}" ${t.thread === dangMo ? 'aria-current="page"' : ''}>${t.tieuDe}` +
+    '<span><button type="button" aria-label="More thread actions" aria-haspopup="menu" data-pel-click="chat_thread_options_open">⋯</button></span></div>').join('');
+  for (const h of o.querySelectorAll('[data-id]')) {
+    h.addEventListener('click', () => { history.pushState({}, '', '/thread/' + h.dataset.id); veThread(h.dataset.id); });
+    h.querySelector('button').addEventListener('pointerdown', () => moMenuChat(h.dataset.id));
+  }
+}
+function moMenuChat(id) {
+  const m = document.createElement('div');
+  m.setAttribute('role', 'menu');
+  m.innerHTML = '<div role="menuitem" data-pel-click="chat_thread_pin_click">Pin</div><div role="menuitem" data-pel-click="chat_thread_delete_open">Delete</div>';
+  m.lastElementChild.addEventListener('click', () => {
+    m.remove();
+    const d = document.createElement('div');
+    d.setAttribute('role', 'dialog');
+    d.innerHTML = '<h2>Delete side chat?</h2><button data-pel-click="chat_thread_delete_cancel">Cancel</button><button data-pel-click="chat_thread_delete_confirm">Delete</button>';
+    d.firstElementChild.nextElementSibling.onclick = () => d.remove();
+    d.lastElementChild.onclick = async () => {
+      await fetch('/__xoa', { method: 'POST', body: JSON.stringify({ thread: id }) });
+      d.remove();
+      if (location.pathname.endsWith('/' + id)) { history.pushState({}, '', '/'); veKhung(''); } else veDsChat();
+    };
+    document.body.appendChild(d);
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') m.remove(); }, { once: true });
+  document.body.appendChild(m);
+}
+
 async function guiTin(prompt, soFile) {
   const id = Math.random().toString(16).slice(2, 10) + '-' + Date.now().toString(16);
   await fetch('/__gui', { method: 'POST', body: JSON.stringify({ prompt, soFile, thread: id, t0: Date.now() }) });
@@ -116,7 +159,7 @@ let henVe = null;
 async function veThread(id) {
   clearTimeout(henVe);
   const t = await docThread(id);
-  if (!t) { veKhung(''); return; }
+  if (!t || MAT) { veKhung(''); return; }
   const user = `<div data-message-item="true" data-message-role="user"><div aria-busy="false"><span>You:</span><p>${t.prompt.replace(/</g, '&lt;')}</p></div></div>`;
   const tre = /CHAM/.test(t.prompt) ? 6000 : 2000;
   const daQua = Date.now() - t.t0;

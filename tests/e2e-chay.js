@@ -352,6 +352,35 @@ module.exports = function e2e({ win, app, LENH, dieuPhoi }) {
       kiem(chuaCho12 > 0 && sau12.length === truoc12.length &&
         sau12.every((j) => j.trangThai === 'cho' && !j.thread && !j.loi && !j.vongLai), `"Đặt lại" đưa ${sau12.length} việc ảnh về Chờ, xoá chat/lỗi cũ`);
       kiem(viec().filter((j) => j.loai === 'video').map((j) => j.trangThai).join() === video12, 'hàng đợi video không bị đụng');
+
+      // 13) Muse kẹt "Connecting..." (mất kết nối máy ảo — người dùng gặp 12/10/2026): KHÔNG gửi,
+      //     không chờ suông 600 giây, tạm dừng cả hàng chờ, việc về Chờ.
+      ghi('-- 13. Muse mất kết nối');
+      await tk1.cookies.set({ url: process.env.MUSE_URL, name: 'muse_matketnoi', value: '1' });
+      const gui13 = (await daGui()).length, t13 = Date.now();
+      LENH.them({ duAn: 'mac-dinh', loai: 'anh', tyLe: '1:1', prompts: ['mất kết nối 1', 'mất kết nối 2'], chay: true });
+      const v13 = viec().slice(-2);
+      await cho(() => !dieuPhoi.dangChay && !dieuPhoi.coViecDangChay(), 40000, 'tạm dừng vì mất kết nối');
+      kiem(!dieuPhoi.dangChay && Date.now() - t13 < 40000, `mất kết nối → tự tạm dừng sau ${Math.round((Date.now() - t13) / 1000)} s (không chờ 600 s)`);
+      kiem(v13.every((j) => j.trangThai === 'cho' && !j.thu), 'việc về Chờ, không tính là lần thử');
+      kiem((await daGui()).length === gui13, 'không gửi prompt nào khi Muse mất kết nối');
+      kiem(LENH.trangThai().nhatKy.some((d) => /mất kết nối \("Connecting\.\.\."\).*TẠM DỪNG/.test(d.chu || d.text || JSON.stringify(d))), 'nhật ký nói rõ Muse mất kết nối, đã tạm dừng');
+      await tk1.cookies.remove(process.env.MUSE_URL, 'muse_matketnoi');
+      LENH.xoaViec({ ids: v13.map((j) => j.id) });
+
+      // 14) Xoá chat trên Muse: theo việc đã chọn, rồi xoá toàn bộ.
+      ghi('-- 14. Xoá chat Muse');
+      const dsThread = async () => (await net.fetch(`${process.env.MUSE_URL}/__ds-thread`)).json();
+      const jv = viec().find((j) => j.loai === 'video' && j.trangThai === 'xong' && j.thread);
+      const id14 = jv && jv.thread.split('/').pop();
+      const truoc14 = (await dsThread()).length;
+      const r14 = jv ? await LENH.xoaChatViec({ ids: [jv.id] }) : null;
+      const sau14 = await dsThread();
+      kiem(r14 && r14.ok && r14.da === 1 && sau14.length === truoc14 - 1 && !sau14.some((t) => t.thread === id14) && !jv.thread,
+        `xoá chat của 1 việc đã chọn (${truoc14} → ${sau14.length}), việc bỏ đường dẫn chat`);
+      const r14b = await LENH.xoaChatTaiKhoan({ id: 'tk-1' });
+      const con14 = await dsThread();
+      kiem(r14b && r14b.ok && r14b.da === sau14.length && con14.length === 0, `xoá toàn bộ chat (${r14b && r14b.da} cái), không còn chat nào`);
     } catch (err) {
       ghi('LỖI KỊCH BẢN: ' + err.stack);
       loi.push('ngoại lệ');

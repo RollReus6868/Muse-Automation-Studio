@@ -19,8 +19,20 @@ const sv = http.createServer((req, res) => {
     req.on('end', () => { try { daGui.push({ ...JSON.parse(b), luc: Date.now() }); } catch (_) {} res.end('ok'); });
     return;
   }
+  if (req.method === 'POST' && req.url === '/__xoa') {
+    let b = '';
+    req.setEncoding('utf8');
+    req.on('data', (d) => { b += d; });
+    req.on('end', () => { try { const t = JSON.parse(b).thread; for (const g of daGui) if (g.thread === t) g.xoa = true; } catch (_) {} res.end('ok'); });
+    return;
+  }
   const m = req.url.match(/^\/__thread\/([^/?]+)/);
-  if (m) { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify(daGui.find((g) => g.thread === m[1]) || null)); return; }
+  if (m) { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify(daGui.find((g) => g.thread === m[1] && !g.xoa) || null)); return; }
+  if (req.url === '/__ds-thread') {
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify(daGui.filter((g) => !g.xoa).reverse().map((g) => ({ thread: g.thread, tieuDe: String(g.prompt).slice(0, 30).replace(/[<&"]/g, '') }))));
+    return;
+  }
   if (req.url === '/__da-gui') { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify(daGui)); return; }
   res.setHeader('content-type', 'text/html; charset=utf-8');
   res.end(fixture);
@@ -35,7 +47,7 @@ sv.listen(0, '127.0.0.1', () => {
   const p = spawn(electron, args, {
     cwd: path.join(__dirname, '..'),
     env: { ...process.env, MUSE_URL: url, MUSE_TEST: 'tests/e2e-chay.js', MUSE_DATA_DIR: path.join(tam, 'data'),
-      MUSE_E2E_TAM: tam, MUSE_NO_UPDATE_CHECK: '1' },
+      MUSE_E2E_TAM: tam, MUSE_NO_UPDATE_CHECK: '1', MUSE_CHO_KET_NOI_MS: '4000' },
     stdio: ['ignore', 'pipe', 'pipe']
   });
   let raChu = '';

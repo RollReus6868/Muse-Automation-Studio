@@ -24,6 +24,8 @@ class Luong {
       goc: (o.goc || 'https://muse.ai').replace(/\/$/, ''), log: o.log || (() => {}) });
     this.viec = null;
     this.huy = 0;
+    // Muse kẹt "Connecting..." quá lâu chừng này → coi là mất kết nối (vừa mở trang Muse cũng hiện thoáng qua).
+    this.choKetNoiMs = Number(process.env.MUSE_CHO_KET_NOI_MS) || 60000;
   }
 
   get ranh() { return !this.viec; }
@@ -54,7 +56,7 @@ class Luong {
    * @param job
    * @param ctx { tinNhan, files:[{ten,mime,b64}], png, choToiDaGiay, choChuGiay,
    *              choGui():Promise (giãn nhịp theo tài khoản), capNhat(thay) }
-   * @returns {ok, files} | {ok:false, loi, canDangNhap?, dung?, giuThread?}
+   * @returns {ok, files} | {ok:false, loi, canDangNhap?, dung?, matKetNoi?, giuThread?}
    */
   async chay(job, ctx) {
     this.viec = job;
@@ -82,6 +84,14 @@ class Luong {
     }
     if (tt && tt.canDangNhap) return { ok: false, canDangNhap: true, loi: 'Tài khoản chưa đăng nhập Muse' };
     if (!tt || !tt.coONhap) return { ok: false, loi: 'Không mở được trang Muse (không thấy ô nhập)', giuThread: true };
+
+    // Muse mất kết nối tới máy ảo của tài khoản ("Connecting...") → chat/ảnh/video không nạp: đừng gửi
+    // (mất dấu chat, phí lượt) và đừng chờ suông 600 giây.
+    for (const het = Date.now() + this.choKetNoiMs; tt && tt.matKetNoi && Date.now() < het;) {
+      if (!(await this.ngu(1000, huyLuc))) return { ok: false, dung: true, giuThread: true };
+      tt = await this.goi('window.__muse.trangThai()').catch(() => tt);
+    }
+    if (tt && tt.matKetNoi) return { ok: false, matKetNoi: true, loi: `Muse mất kết nối ("${tt.trangThaiMuse}")`, giuThread: true };
 
     if (!tiepTuc) {
       await ctx.choGui();
@@ -111,6 +121,7 @@ class Luong {
     let coChuLuc = 0;
     let lanLoiTrang = 0;
     let lanLayHong = 0;
+    let matTu = 0;
     while (Date.now() < het) {
       if (!(await this.ngu(3000, huyLuc))) return { ok: false, dung: true, giuThread: true };
       let kq;
@@ -124,6 +135,10 @@ class Luong {
         continue;
       }
       if (kq.canDangNhap) return { ok: false, canDangNhap: true, loi: 'Muse đòi đăng nhập lại', giuThread: true };
+      matTu = kq.matKetNoi ? matTu || Date.now() : 0;
+      if (matTu && Date.now() - matTu > this.choKetNoiMs) {
+        return { ok: false, matKetNoi: true, loi: `Muse mất kết nối ("${kq.trangThaiMuse}") — chưa tải được kết quả`, giuThread: true };
+      }
 
       if (hd.daXong(job.loai, kq)) {
         ctx.capNhat({ buoc: 'tai' });

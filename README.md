@@ -20,6 +20,8 @@ Kết quả mặc định lưu ở `Tài liệu/Muse Automation Studio/<Dự_án
 | Nhiều tài khoản | Mỗi tài khoản một phiên đăng nhập riêng, không đá nhau ra |
 | Mức token | Thẻ tài khoản hiện mức dùng token của Muse (gói tuần, token bổ sung còn lại); tự cập nhật khi chạy hết hàng chờ, nút *Cập nhật token* |
 | Đặt lại hàng đợi | Nút *Đặt lại*: mọi việc của dự án đang xem về *Chờ* như lúc mới thêm |
+| Xoá chat Muse | Thẻ tài khoản → *Xoá chat* (xoá mọi chat phụ trên muse.ai); hàng đợi → chọn việc → *Xoá chat Muse* (chỉ chat của các việc đó) |
+| Muse mất kết nối | Muse kẹt "Connecting..." → tool không gửi thêm, tự tạm dừng hàng chờ, việc về *Chờ* (giữ chat để lấy tiếp kết quả) |
 | Chat sạch | Mỗi prompt chạy trong một *chat phụ mới* của Muse, không dính ngữ cảnh hay ảnh của prompt trước |
 | Ảnh tham chiếu | Kéo thả ảnh để gửi kèm mọi prompt; *chọn thư mục* để gán ảnh 1 → prompt 1, ảnh 2 → prompt 2… |
 | Nhân vật | Lưu ảnh nhân vật kèm tên; prompt nhắc tên là tự gửi kèm ảnh (*Giữ nguyên nhân vật*), hoặc chế độ *Người mẫu* gắn vào mọi prompt |
@@ -69,6 +71,12 @@ Biến môi trường cho kiểm thử: `MUSE_URL` (địa chỉ Muse giả), `M
 Phát hành: tăng `version` trong `package.json`, ghi `GHI_CHU_BAN_MOI.md` (nhắc số phiên bản), push, rồi *Actions → Phat hanh ban moi → Run workflow*. Repo phải để **public** thì app mới tự cập nhật được.
 
 ## Lịch sử
+
+### 1.5.0 (12/10/2026) — Muse "Connecting...", xoá đoạn chat
+- Người dùng: mọi việc "Quá 600 giây chưa thấy kết quả", muse.ai hiện "Video not found". Đo trên trang thật: Muse kẹt **Connecting...** (chữ trạng thái dưới avatar, `[data-pel-impression=status_limit_reached_impression] [title]`; bình thường "Connected") — mất kết nối tới máy ảo của tài khoản (WebSocket `hatch.metaaivm.com`), chat không nạp (`chat-empty-loading`), media không tải. Không phải do tool (tắt tool vẫn kẹt), tự hết sau ~40 phút. Trong lúc đó Muse vẫn nhận prompt nhưng đường dẫn ở lại `/thread/new` → tool lưu "/thread/new" làm chat, lần thử lại mở chat trống, chờ suông thêm 600 s.
+- Sửa: kẹt "Connecting..." quá 60 s → không gửi, trả `matKetNoi` → hàng chờ TẠM DỪNG, việc về Chờ, không tính lần thử, nhật ký nói rõ. Gửi xong mà đường dẫn vẫn `/thread/new` → không giữ làm chat.
+- Xoá chat (đo 12/10/2026): `[data-testid=hatch-thread-row]` (anh em cùng cha, chat đang mở `aria-current=page`) → nút ⋯ TRONG hàng `chat_thread_options_open` (Radix, chỉ pointerdown — click nổi lên hàng làm Muse chuyển chat) → `chat_thread_delete_open` → hộp "Delete side chat?" → `chat_thread_delete_confirm`. "Main chat" không có ⋯. Chưa bấm xác nhận xoá thật trên muse.ai (chỉ thử tới hộp xác nhận rồi Cancel).
+- Thanh chọn của hàng đợi xuống dòng khi cửa sổ hẹp.
 
 ### 1.4.1 (12/10/2026) — "Gửi prompt hỏng: không đính kèm được ảnh"
 - Nguyên nhân: từ 1.3.1, `khungSoan()` lấy tổ tiên GẦN NHẤT của ô nhập có chứa `input[type=file]`, rồi chỉ tìm nút gỡ tệp / ảnh thu nhỏ trong đó. Trên muse.ai thật (đo 12/10/2026) không có `<form>`: input file nằm trong div bọc sát ô nhập (0 nút, 0 ảnh); ảnh thu nhỏ + "Remove attachment" ở tổ tiên cấp 2, nút đính kèm + Send ở cấp 3 → Muse đã nhận ảnh mà tool chờ 20 s rồi báo lỗi. Bản 1.3.0 đếm "Remove attachment" trên cả trang nên không bị.

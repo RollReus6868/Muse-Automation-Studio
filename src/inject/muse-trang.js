@@ -18,6 +18,10 @@
 //    đang gõ         [aria-label="Assistant is typing"]  hoặc aria-busy
 //  NHÃN aria-label ĐỔI THEO NGÔN NGỮ (máy tiếng Việt: "Nhắn tin", "Gửi"…) → mọi chỗ dò theo
 //  nhãn đều có bản tiếng Việt (NHAN) và một đường dự phòng không cần chữ.
+//    trạng thái Muse chữ dưới avatar: span[title] trong [data-pel-impression="status_limit_reached_impression"]
+//                    ("Connecting..." = mất kết nối tới máy ảo của tài khoản → chat/ảnh/video không tải được)
+//    xoá chat        [data-testid="hatch-thread-row"] → nút ⋯ [data-pel-click="chat_thread_options_open"] →
+//                    [data-pel-click="chat_thread_delete_open"] → [data-pel-click="chat_thread_delete_confirm"]
 //    mức token       nút dock [data-testid="hatch-dock-more"] → mục cuối menu → [role=dialog] [role=progressbar]
 //  Ảnh/video nằm trong blob: cùng nguồn → fetch() lấy được file gốc, khỏi
 //  bấm nút Download.
@@ -84,12 +88,25 @@
       $$('input').some((i) => /mail|phone|mobile|điện thoại/i.test(i.placeholder || ''));
   }
 
+  /** Chữ trạng thái Muse dưới avatar ("Connecting...", "Working"…). Muse mất kết nối tới máy ảo
+   *  của tài khoản (đo 12/10/2026: kẹt "Connecting..." hàng chục phút) thì chat/ảnh/video không nạp. */
+  function chuTrangThaiMuse() {
+    const e = $('[data-pel-impression="status_limit_reached_impression"] [title]');
+    return e ? String(e.getAttribute('title') || '').trim() : '';
+  }
+  // Đã đo: "Connecting..." (mất kết nối), "Connected" (bình thường). Bản tiếng Việt đoán: "Đang kết nối…" —
+  // KHÔNG được nhận nhầm "Đã kết nối".
+  const MAT_KET_NOI = /^(connecting|reconnecting|disconnected|offline|connection error)|^(đang (kết nối|kết nối lại)|mất kết nối|đã ngắt kết nối|lỗi kết nối|ngoại tuyến)/i;
+  const matKetNoi = () => MAT_KET_NOI.test(chuTrangThaiMuse());
+
   function trangThai() {
     return {
       url: location.href,
       coONhap: !!oNhap(),
       canDangNhap: canDangNhap(),
-      soTinMuse: tinMuse().length
+      soTinMuse: tinMuse().length,
+      matKetNoi: matKetNoi(),
+      trangThaiMuse: chuTrangThaiMuse()
     };
   }
 
@@ -183,8 +200,10 @@
       $$('[data-message-role="user"]').length > soUserTruoc, 20000);
     if (!an) return { ok: false, loi: 'gui-khong-an', chu: chuLoiTrenTrang() };
     // Chờ thêm chút để chắc đường dẫn chat mới đã có.
-    await cho(() => !/\/new$/.test(location.pathname), 5000);
-    return { ok: true, thread: location.href };
+    await cho(() => !/\/new$/.test(location.pathname), 8000);
+    // Đường dẫn vẫn /thread/new (Muse mất kết nối…) → KHÔNG giữ: mở lại "/thread/new" là chat trống,
+    // lần thử lại sẽ chờ suông 600 giây (lỗi người dùng gặp 12/10/2026).
+    return { ok: true, thread: /\/new$/.test(location.pathname) ? '' : location.href };
   }
 
   function anhDaNap(khung) {
@@ -223,6 +242,8 @@
         ms.some((m) => m.querySelector('[aria-busy="true"]')),
       chu: ms.map((m) => (m.innerText || '').trim()).filter(Boolean).join('\n').slice(0, 600),
       canDangNhap: canDangNhap(),
+      matKetNoi: matKetNoi(),
+      trangThaiMuse: chuTrangThaiMuse(),
       loiTrang: chuLoiTrenTrang()
     };
   }
@@ -335,6 +356,56 @@
     };
   }
 
-  window.__muse = { phienBan: 1, trangThai, gui, ketQua, layFile, hanMuc };
+  // ── Xoá đoạn chat (đo 12/10/2026 ở 1280×800: danh sách chat phụ ghim bên trái) ───────────
+  // Mỗi chat là [data-testid=hatch-thread-row] (chat đang mở có aria-current=page), các hàng là anh
+  // em cùng cha; nút ⋯ nằm TRONG hàng. "Main chat" không có nút ⋯ → không xoá được, tự bỏ qua.
+  const nutChat = (h) => h && ($('button[data-pel-click="chat_thread_options_open"]', h) || $('button[aria-haspopup="menu"]', h));
+  const hangChat = () => $$('[data-testid="hatch-thread-row"]').filter(nutChat);
+  const dongMenu = () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+  async function xoaHang(h) {
+    const truoc = hangChat().length;
+    // Menu Radix mở bằng pointerdown. KHÔNG bắn click: click nổi lên hàng → Muse chuyển sang chat đó.
+    nutChat(h).dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, pointerType: 'mouse', isPrimary: true }));
+    const muc = await cho(() => $('[role="menu"] [data-pel-click="chat_thread_delete_open"]'), 5000);
+    if (!muc) { dongMenu(); return false; }
+    bam(muc);
+    const ok = await cho(() => $('[role="dialog"] [data-pel-click="chat_thread_delete_confirm"]'), 5000);
+    if (!ok) { dongMenu(); return false; }
+    ok.click();
+    // Xoá xong = danh sách ngắn đi (KHÔNG dựa vào hàng rời DOM: Muse vẽ lại danh sách là hàng cũ rời ngay).
+    return !!(await cho(() => hangChat().length < truoc, 15000));
+  }
+
+  /** Xoá chat đang mở (mở /thread/<id> trước). */
+  async function xoaChatDangMo() {
+    const h = await cho(() => hangChat().find((x) => x.getAttribute('aria-current') === 'page'), 20000);
+    if (!h) return { ok: false, loi: 'khong-thay-chat' };
+    return (await xoaHang(h)) ? { ok: true } : { ok: false, loi: 'xoa-khong-duoc' };
+  }
+
+  /** Xoá lần lượt mọi chat phụ trong danh sách, tối đa `toiDa` cái mỗi lần gọi. */
+  async function xoaNhieuChat(p) {
+    const toiDa = (p && p.toiDa) || 10;
+    await cho(() => hangChat().length || $('[data-testid="hatch-side-chats-panel-content"]'), 20000);
+    await ngu(1500);
+    let da = 0;
+    while (da < toiDa) {
+      let h = hangChat()[0];
+      if (!h) {
+        // Danh sách nạp dần: kéo tới "nạp thêm" rồi xem còn không.
+        const s = $('[data-testid="active-side-chat-load-more-sentinel"]');
+        if (s) s.scrollIntoView();
+        h = await cho(() => hangChat()[0], 4000);
+        if (!h) break;
+      }
+      if (!(await xoaHang(h))) return { ok: false, da, loi: 'xoa-khong-duoc' };
+      da++;
+      await ngu(400);
+    }
+    return { ok: true, da, conLai: hangChat().length };
+  }
+
+  window.__muse = { phienBan: 1, trangThai, gui, ketQua, layFile, hanMuc, xoaChatDangMo, xoaNhieuChat };
 })();
 undefined;

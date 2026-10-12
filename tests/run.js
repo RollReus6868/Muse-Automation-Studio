@@ -365,6 +365,22 @@ test('nhãn Muse: hiểu cả tiếng Anh (đã đo) lẫn tiếng Việt, khôn
   for (const [k, ds] of Object.entries(dung)) for (const x of ds) assert.ok(NHAN[k].test(x), `${k} phải nhận "${x}"`);
   for (const x of ['Gửi phản hồi', 'Send feedback', 'Attach file']) assert.ok(!NHAN.gui.test(x), `gui không được nhận "${x}"`);
 });
+test('gửi xong mà đường dẫn vẫn /thread/new thì KHÔNG giữ làm chat (mở lại là chat trống, chờ suông)', () => {
+  const s = docNguon('src/inject/muse-trang.js');
+  const gui = s.slice(s.indexOf('async function gui('), s.indexOf('function anhDaNap('));
+  assert.ok(/thread: \/\\\/new\$\/\.test\(location\.pathname\) \? '' : location\.href/.test(gui));
+});
+test('trạng thái Muse: nhận "Connecting..." là mất kết nối, không nhầm "Connected"/"Đã kết nối"', () => {
+  const s = docNguon('src/inject/muse-trang.js');
+  const re = eval(s.match(/const MAT_KET_NOI = (\/.*\/i);/)[1]);
+  for (const x of ['Connecting...', 'Reconnecting…', 'Đang kết nối...', 'Mất kết nối', 'Connection error']) assert.ok(re.test(x), x);
+  for (const x of ['Connected', 'Đã kết nối', 'Working', 'Đang làm việc', '']) assert.ok(!re.test(x), x);
+});
+test('xoá chat: mở menu ⋯ chỉ bằng pointerdown (click nổi lên hàng → Muse chuyển chat)', () => {
+  const s = docNguon('src/inject/muse-trang.js');
+  const x = s.slice(s.indexOf('async function xoaHang('), s.indexOf('async function xoaChatDangMo('));
+  assert.ok(/nutChat\(h\)\.dispatchEvent\(new PointerEvent\('pointerdown'/.test(x) && !/bam\(nutChat/.test(x));
+});
 test('trình trợ giúp kết thúc bằng undefined; (executeJavaScript không phải sao chép hàm)', () => {
   assert.ok(/\nundefined;\s*$/.test(docNguon('src/inject/muse-trang.js', true)));
 });
