@@ -201,11 +201,11 @@ async function kiemTaiKhoan(id) {
   baoTrangThai();
   return kq;
 }
-/** Cập nhật mức token của mọi tài khoản đang bật (lần lượt; đang cập nhật thì bỏ qua lần gọi mới). */
+/** Cập nhật mức token của mọi tài khoản (lần lượt; đang cập nhật thì bỏ qua lần gọi mới). */
 let dangCapNhatToken = null;
 function capNhatToken() {
   dangCapNhatToken = dangCapNhatToken || (async () => {
-    try { for (const a of taiKhoan.dangBat()) await kiemTaiKhoan(a.id); } finally { dangCapNhatToken = null; }
+    try { for (const a of taiKhoan.list()) await kiemTaiKhoan(a.id); } finally { dangCapNhatToken = null; }
   })();
   return dangCapNhatToken;
 }
@@ -282,7 +282,8 @@ const LENH = {
   taoLai: ({ ids }) => dieuPhoi.taoLai(ids),
   xoaViec: ({ ids }) => dieuPhoi.xoaViec(ids),
   suaViec: ({ id, thay }) => dieuPhoi.suaViec(id, thay),
-  taoDuAn: ({ ten }) => dieuPhoi.taoDuAn(ten),
+  taoDuAn: ({ ten, taiKhoan: ds }) => dieuPhoi.taoDuAn(ten, ds),
+  datTaiKhoanDuAn: ({ id, taiKhoan: ds }) => dieuPhoi.datTaiKhoanDuAn(id, ds),
   doiTenDuAn: ({ id, ten }) => dieuPhoi.doiTenDuAn(id, ten),
   xoaDuAn: ({ id }) => dieuPhoi.xoaDuAn(id),
   luuNhanVat: (nv) => {

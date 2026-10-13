@@ -14,6 +14,7 @@
   Chưa có cookie muse_login=1 → hiện màn đăng nhập.
   Cookie muse_lang=vi → giao diện tiếng Việt (như Muse trên máy Mac tiếng Việt). Vài nhãn CỐ Ý lạ
   (nút gửi, nút gỡ tệp, màn đăng nhập) để kiểm đường dự phòng không cần đọc chữ của muse-trang.js.
+  Cookie muse_hong=1 → tài khoản đó luôn trả chữ (như HOI_LAI) — kiểm chuyển sang tài khoản dự phòng.
   Cookie muse_matketnoi=1 → Muse kẹt "Connecting..." (mất kết nối máy ảo, như 12/10/2026): chat không nạp.
   Danh sách chat phụ bên trái (như Muse 12/10/2026): hàng [data-testid=hatch-thread-row], nút ⋯ TRONG hàng
   mở menu bằng pointerdown; click nổi lên hàng thì chuyển sang chat đó (như thật). Xoá → hộp xác nhận.
@@ -27,6 +28,7 @@ const ngu = (ms) => new Promise((r) => setTimeout(r, ms));
 const daDangNhap = document.cookie.includes('muse_login=1');
 const VI = document.cookie.includes('muse_lang=vi');
 const MAT = document.cookie.includes('muse_matketnoi=1');
+const HONG = document.cookie.includes('muse_hong=1');   // tài khoản "hỏng": Muse chỉ trả chữ (kiểm chuyển tài khoản)
 const L = VI
   ? { o: 'Nhắn tin', gui: 'Đẩy đi', go: 'Hủy tệp', dangGo: 'Trợ lý đang nhập', mo: 'Mở ảnh đã tạo', dong: 'Đóng', caiDat: 'Cài đặt',
       menu: ['Phím tắt', 'Báo lỗi', 'Cài đặt'],
@@ -169,7 +171,7 @@ async function veThread(id) {
     return;
   }
   const video = /^Tạo 1 video/.test(t.prompt);
-  if (/HOI_LAI/.test(t.prompt)) {
+  if (/HOI_LAI/.test(t.prompt) || HONG) {
     veKhung(user + '<div data-message-item="true" data-message-role="assistant"><div aria-busy="false"><div data-hatch-assistant-message-body="true">Bạn muốn ảnh theo phong cách nào?</div></div></div>');
     return;
   }

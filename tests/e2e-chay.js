@@ -381,6 +381,43 @@ module.exports = function e2e({ win, app, LENH, dieuPhoi }) {
       const r14b = await LENH.xoaChatTaiKhoan({ id: 'tk-1' });
       const con14 = await dsThread();
       kiem(r14b && r14b.ok && r14b.da === sau14.length && con14.length === 0, `xoá toàn bộ chat (${r14b && r14b.da} cái), không còn chat nào`);
+
+      // 15) Tài khoản chính + dự phòng: chọn trong hộp "Dự án mới"; chính lỗi → việc sang dự phòng NGAY;
+      //     chính lỗi 2 việc liền → nghỉ, việc sau chạy thẳng dự phòng; tài khoản ngoài dự án không đụng tới.
+      ghi('-- 15. Tài khoản chính + dự phòng');
+      const tk3 = await LENH.themTaiKhoan({ ten: 'TK ba' });
+      await session.fromPartition(tk3.partition).cookies.set({ url: process.env.MUSE_URL, name: 'muse_login', value: '1' });
+      await tk1.cookies.set({ url: process.env.MUSE_URL, name: 'muse_hong', value: '1' });
+      LENH.datCaiDat({ luongMoiTK: 1 });
+      await js(`window.__diToi('taikhoan')`);
+      await choJs(`/TK ba/.test(document.querySelector('#dsTaiKhoan').innerText)`, 5000, 'giao diện thấy TK ba');
+      await js(`window.__diToi('anh')`);
+      await js(`document.querySelector('#nutThemDuAn').click()`);
+      await choJs(`!!document.querySelector('#hopNoiDung [name="du_${tk3.id}"]')`, 5000, 'hộp dự án mới có ô tài khoản');
+      await js(`(() => { const h = document.querySelector('#hopNoiDung');
+        h.querySelector('[name=ten]').value = 'Du phong';
+        h.querySelector('[name=tkChinh]').value = 'tk-1';
+        for (const c of h.querySelectorAll('input[type=checkbox]')) c.checked = c.name === 'du_${tk3.id}';
+        document.querySelector('#hopOk').click(); })()`);
+      await cho(() => LENH.trangThai().duAn.some((d) => d.ten === 'Du phong'), 5000, 'tạo dự án');
+      const d15 = LENH.trangThai().duAn.find((d) => d.ten === 'Du phong');
+      kiem(d15 && JSON.stringify(d15.taiKhoan) === JSON.stringify(['tk-1', tk3.id]), `dự án nhớ [chính, dự phòng] (${d15 && JSON.stringify(d15.taiKhoan)})`);
+      kiem(await choJs(`document.querySelector('#chuTkDuAn').textContent === 'Tài khoản 1 +1 dự phòng'`, 5000, 'nút tài khoản dự án'), 'nút cạnh tên dự án hiện tài khoản chính + số dự phòng');
+      LENH.xoaViec({ ids: viec().filter((j) => j.trangThai === 'cho').map((j) => j.id) });   // việc chờ sót của các mục trước
+      const gui15 = (await daGui()).length, nk15 = LENH.trangThai().nhatKy.length;
+      LENH.them({ duAn: d15.id, loai: 'anh', tyLe: '1:1', prompts: ['dự phòng 1', 'dự phòng 2', 'dự phòng 3'], chay: true });
+      const v15 = viec().filter((j) => j.duAn === d15.id);
+      await cho(() => !dieuPhoi.dangChay && !dieuPhoi.coViecDangChay(), 120000, 'chạy xong dự án dự phòng');
+      for (const j of v15) ghi(`   #${j.so} ${j.trangThai} tk=${j.taiKhoan} tkLoi=${(j.tkLoi || []).join(',')} ${j.loi || ''}`);
+      for (const d of LENH.trangThai().nhatKy.slice(nk15)) if (/[↪⚠❌↻]|#\d+ đã gửi/.test(d.chu)) ghi(`   | ${d.chu}`);
+      kiem(v15.length === 3 && v15.every((j) => j.trangThai === 'xong' && j.taiKhoan === tk3.id && j.files.length), 'chính lỗi → cả 3 việc xong ở tài khoản dự phòng');
+      const tkl = (j) => j.tkLoi || [];
+      kiem(tkl(v15[0]).includes('tk-1') && tkl(v15[1]).includes('tk-1') && !tkl(v15[2]).length, 'chính lỗi 2 việc liền → việc thứ 3 chạy thẳng dự phòng');
+      kiem((await daGui()).length - gui15 === 5, `gửi đúng 5 lần (2 lỗi ở chính + 3 ở dự phòng): ${(await daGui()).length - gui15}`);
+      kiem(LENH.trangThai().nhatKy.some((d) => /chuyển sang "TK ba"/.test(d.chu)) &&
+        LENH.trangThai().nhatKy.some((d) => /"Tài khoản 1": lỗi 2 việc liên tiếp — tạm nghỉ/.test(d.chu)), 'nhật ký báo chuyển tài khoản + tạm nghỉ');
+      kiem(!viec().some((j) => j.duAn === d15.id && j.taiKhoan === tk2.id), 'tài khoản ngoài dự án không chạy việc nào');
+      await tk1.cookies.remove(process.env.MUSE_URL, 'muse_hong');
     } catch (err) {
       ghi('LỖI KỊCH BẢN: ' + err.stack);
       loi.push('ngoại lệ');

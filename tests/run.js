@@ -239,7 +239,7 @@ test('kết thúc lỗi: thử lại lần 1 giữ chat (nếu còn dùng đư�
   dp.datCaiDat({ tuThuLai: 2 });
   dp.them({ prompts: ['a'] });
   const j = dp.viec[0];
-  j.thread = 't1';
+  Object.assign(j, { thread: 't1', taiKhoan: 'tk-1' });
   dp._ketThuc(j, { ok: false, loi: 'quá giờ', giuThread: true }, null);
   assert.strictEqual(j.trangThai, 'cho'); assert.strictEqual(j.thread, 't1');
   dp._ketThuc(j, { ok: false, loi: 'quá giờ', giuThread: true }, null);
@@ -269,7 +269,7 @@ test('cài đặt bị kẹp trong khoảng an toàn; mẫu thiếu {prompt} tr�
   dp.datCaiDat({ luongMoiTK: 99, nghiGiuaLanGui: -5, choAnhGiay: 'x', mau: { anh: 'không có chỗ prompt' } });
   assert.strictEqual(dp.caiDat.luongMoiTK, 20);
   assert.strictEqual(dp.caiDat.nghiGiuaLanGui, 0);
-  assert.strictEqual(dp.caiDat.choAnhGiay, 240);
+  assert.strictEqual(dp.caiDat.choAnhGiay, 180);
   assert.strictEqual(dp.caiDat.mau.anh, HD.MAU_MAC_DINH.anh);
 });
 testAsync('hết lượt mà còn việc lỗi → tự chạy lại tối đa N lượt; Tạo lại tay thì đếm lại từ đầu', async () => {
@@ -297,7 +297,7 @@ test('dự án: không xoá dự án cuối, xoá dự án xoá luôn việc c�
   assert.strictEqual(dp.xoaDuAn(d.id).ok, true);
   assert.strictEqual(dp.viec.length, 0);
 });
-testAsync('điều phối: chia đủ luồng cho mỗi tài khoản bật, không giao một việc cho hai luồng', async () => {
+testAsync('điều phối: chỉ tài khoản CHÍNH chạy (dự phòng không mở luồng khi không lỗi), không giao một việc cho hai luồng', async () => {
   const daChay = [];
   const taoLuong = (a, stt) => ({
     id: `${a.id}-${stt}`, ranh: true, viec: null, dung() {},
@@ -314,7 +314,86 @@ testAsync('điều phối: chia đủ luồng cho mỗi tài khoản bật, khô
   assert.strictEqual(new Set(daChay.map((x) => x[1])).size, 7);
   assert.strictEqual(daChay.length, 7, 'mỗi việc chạy đúng 1 lần');
   assert.ok(dp.viec.every((j) => j.trangThai === 'xong'));
-  assert.deepStrictEqual([...new Set(daChay.slice(0, 4).map((x) => x[0]))].sort(), ['hai-1', 'hai-2', 'tk-1-1', 'tk-1-2']);
+  assert.deepStrictEqual([...new Set(daChay.map((x) => x[0]))].sort(), ['tk-1-1', 'tk-1-2']);
+});
+/** Luồng giả: tài khoản nằm trong `hong` thì trả lỗi (hoặc kq riêng), còn lại xong. */
+const luongGia = (daChay, hong, kq) => (a, stt) => ({
+  id: `${a.id}-${stt}`, ranh: true, viec: null, dung() {},
+  async chay(j) {
+    this.ranh = false; this.viec = j; daChay.push([a.id, j.so]);
+    await new Promise((r) => setTimeout(r, 10)); this.ranh = true; this.viec = null;
+    return hong.has(a.id) ? (kq || { ok: false, loi: 'Quá 180 giây chưa thấy kết quả', giuThread: true }) : { ok: true, files: [{ mime: 'image/png', b64: 'AA==' }] };
+  }
+});
+async function chayHet(dp) { for (let i = 0; i < 200 && dp.dangChay; i++) { dp._vong(); await new Promise((r) => setTimeout(r, 15)); } dp._vong(); }
+test('chọn tài khoản cho việc: chat dở → đúng tài khoản; chưa lỗi ở đâu → tài khoản chính; lỗi → dự phòng kế tiếp', () => {
+  const ds = ['A', 'B', 'C'];
+  assert.strictEqual(HD.taiKhoanChoViec({}, ds), 'A');
+  assert.strictEqual(HD.taiKhoanChoViec({ tkLoi: ['A'] }, ds), 'B');
+  assert.strictEqual(HD.taiKhoanChoViec({ tkLoi: ['A', 'B'] }, ds), 'C');
+  assert.strictEqual(HD.taiKhoanChoViec({ tkLoi: ['A', 'B', 'C'] }, ds), 'A', 'lỗi hết mà còn lượt → lại từ chính');
+  assert.strictEqual(HD.taiKhoanChoViec({ thread: 't', taiKhoan: 'B' }, ds), 'B', 'chat dở lấy tiếp đúng chỗ');
+  assert.strictEqual(HD.taiKhoanChoViec({ thread: 't', taiKhoan: 'B' }, ds, (id) => id === 'B'), 'A', 'tài khoản của chat dở đang nghỉ → tài khoản khác');
+  assert.strictEqual(HD.taiKhoanChoViec({}, ds, (id) => id === 'A'), 'B', 'chính đang nghỉ → dự phòng');
+  assert.strictEqual(HD.taiKhoanChoViec({}, ['A'], () => true), null);
+});
+testAsync('tài khoản chính lỗi → việc chuyển NGAY sang dự phòng; lỗi liên tiếp → chính tạm nghỉ, việc sau chạy thẳng dự phòng', async () => {
+  const daChay = [];
+  const { dp, tk, nhatKy } = dungDieuPhoi({ taoLuong: luongGia(daChay, new Set(['tk-1'])) });
+  tk.them('Hai'); tk.them('Ba');
+  dp.datCaiDat({ luongMoiTK: 1, nghiGiuaLanGui: 0, tuThuLai: 0, tuChayLaiLoi: 0 });
+  const d = dp.taoDuAn('P', ['tk-1', 'ba']);       // chính tk-1, dự phòng "Ba"; "Hai" không thuộc dự án
+  dp.them({ duAn: d.id, prompts: ['1', '2', '3', '4'] });
+  dp.chayTatCa();
+  await chayHet(dp);
+  assert.ok(dp.viec.every((j) => j.trangThai === 'xong' && j.taiKhoan === 'ba'), dp.viec.map((j) => j.trangThai + j.taiKhoan).join());
+  assert.ok(!daChay.some((x) => x[0] === 'hai'), 'tài khoản ngoài dự án không bao giờ chạy');
+  assert.strictEqual(daChay.filter((x) => x[0] === 'tk-1').length, 2, 'chính lỗi 2 việc liền thì tạm nghỉ, không thử thêm');
+  assert.ok(nhatKy.some((x) => /↪ #1 .*chuyển sang "Ba"/.test(x)));
+  assert.ok(nhatKy.some((x) => /"Tài khoản 1": lỗi 2 việc liên tiếp — tạm nghỉ/.test(x)));
+});
+testAsync('một tài khoản: lỗi thì thử lại như cũ (không tạm nghỉ)', async () => {
+  const daChay = [];
+  const { dp } = dungDieuPhoi({ taoLuong: luongGia(daChay, new Set(['tk-1'])) });
+  dp.datCaiDat({ luongMoiTK: 1, nghiGiuaLanGui: 0, tuThuLai: 1, tuChayLaiLoi: 0 });
+  dp.them({ prompts: ['1', '2'] });
+  dp.chayTatCa();
+  await chayHet(dp);
+  assert.strictEqual(daChay.length, 4, 'mỗi việc 1 lần + 1 lần thử lại');
+  assert.ok(dp.viec.every((j) => j.trangThai === 'loi'));
+});
+testAsync('Muse mất kết nối: có dự phòng → chuyển ngay; không còn tài khoản nào → tạm dừng, việc về Chờ', async () => {
+  const daChay = [];
+  const mat = { ok: false, matKetNoi: true, loi: 'Muse mất kết nối ("Connecting...")', giuThread: true };
+  const { dp, tk, nhatKy } = dungDieuPhoi({ taoLuong: luongGia(daChay, new Set(['tk-1']), mat) });
+  tk.them('Hai');
+  dp.datCaiDat({ luongMoiTK: 1, nghiGiuaLanGui: 0, tuThuLai: 0, tuChayLaiLoi: 0 });
+  dp.them({ prompts: ['1', '2'] });
+  dp.chayTatCa();
+  await chayHet(dp);
+  assert.ok(dp.viec.every((j) => j.trangThai === 'xong' && j.taiKhoan === 'hai'));
+  assert.strictEqual(daChay.filter((x) => x[0] === 'tk-1').length, 1, 'mất kết nối 1 lần là nghỉ ngay');
+  const b = dungDieuPhoi({ taoLuong: luongGia([], new Set(['tk-1']), mat) });
+  b.dp.datCaiDat({ luongMoiTK: 1, nghiGiuaLanGui: 0 });
+  b.dp.them({ prompts: ['1'] });
+  b.dp.chayTatCa();
+  await chayHet(b.dp);
+  assert.deepStrictEqual([b.dp.dangChay, b.dp.viec[0].trangThai, b.dp.viec[0].thu], [false, 'cho', 0]);
+  assert.ok(b.nhatKy.some((x) => /"Tài khoản 1": Muse mất kết nối \("Connecting\.\.\."\).*TẠM DỪNG/.test(x)));
+});
+test('dự án nhớ tài khoản theo thứ tự [chính, dự phòng…]; bỏ tài khoản đã xoá / chưa đăng nhập; chưa chọn = mọi tài khoản', () => {
+  const { dp, tk } = dungDieuPhoi();
+  tk.them('Hai'); tk.them('Ba');
+  assert.deepStrictEqual(dp._dsTk('mac-dinh'), ['tk-1', 'hai', 'ba']);
+  dp.datTaiKhoanDuAn('mac-dinh', ['ba', 'tk-1', 'khong-co', 'ba']);
+  assert.deepStrictEqual(dp.duAn[0].taiKhoan, ['ba', 'tk-1']);
+  tk.sua('ba', { trangThai: 'can-dang-nhap' });
+  assert.deepStrictEqual(dp._dsTk('mac-dinh'), ['tk-1']);
+});
+test('nâng cấp: thời gian chờ mặc định cũ (240/600 s) → mới (180/300 s), giá trị người dùng tự đặt thì giữ', () => {
+  assert.deepStrictEqual((({ choAnhGiay, choVideoGiay }) => [choAnhGiay, choVideoGiay])(dungDieuPhoi({ duLieu: { caiDat: { choAnhGiay: 240, choVideoGiay: 600 } } }).dp.caiDat), [180, 300]);
+  assert.deepStrictEqual((({ choAnhGiay, choVideoGiay }) => [choAnhGiay, choVideoGiay])(dungDieuPhoi({ duLieu: { caiDat: { choAnhGiay: 400, choVideoGiay: 900 } } }).dp.caiDat), [400, 900]);
+  assert.strictEqual(dungDieuPhoi({ duLieu: { caiDat: { choAnhGiay: 240, moc: 1 } } }).dp.caiDat.choAnhGiay, 240, 'đã nâng cấp rồi thì không đổi nữa');
 });
 testAsync('giãn nhịp gửi theo tài khoản: hai luồng cùng tài khoản không gửi cùng lúc', async () => {
   const { dp } = dungDieuPhoi();

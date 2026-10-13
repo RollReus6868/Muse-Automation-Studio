@@ -31,10 +31,12 @@
       <div class="duan" id="khuDuAn">
         <button class="chon-duan" id="nutDuAn"><span id="tenDuAn">Mặc định - 0</span><i data-icon="chevron-down"></i></button>
         <div class="menu" id="menuDuAn" hidden></div>
+        <button class="chip nut-tk-duan" id="nutTkDuAn"><i data-icon="users"></i><span id="chuTkDuAn">—</span></button>
         <button class="nut-icon" id="nutThemDuAn" title="Dự án mới"><i data-icon="plus"></i></button>
         <button class="nut-icon" id="nutMoThuMucDuAn" title="Mở thư mục kết quả của dự án"><i data-icon="folder"></i></button>
         <button class="nut-icon" id="nutMenuDuAn" title="Đổi tên / xoá dự án"><i data-icon="ellipsis-vertical"></i></button>
         <div class="menu menu-phai" id="menuDuAnThem" hidden>
+          <button data-lenh="taiKhoan"><i data-icon="users"></i>Tài khoản chạy dự án…</button>
           <button data-lenh="doiTen"><i data-icon="pencil"></i>Đổi tên dự án</button>
           <button data-lenh="xoaXong"><i data-icon="circle-check"></i>Xoá các việc đã xong khỏi danh sách</button>
           <button data-lenh="xoaDuAn" class="do"><i data-icon="trash-2"></i>Xoá dự án</button>
@@ -229,11 +231,11 @@
         <div class="panel-dau">
           <h2><i data-icon="contact"></i>Tài khoản Muse</h2>
           <div class="hang-nut-dau">
-            <button class="nut-vien nho" id="nutCapNhatToken" title="Đọc lại mức dùng token của mọi tài khoản đang bật"><i data-icon="refresh-cw"></i>Cập nhật token</button>
+            <button class="nut-vien nho" id="nutCapNhatToken" title="Đọc lại mức dùng token của mọi tài khoản"><i data-icon="refresh-cw"></i>Cập nhật token</button>
             <button class="nut-gradient nho" id="nutThemTK"><i data-icon="plus"></i>Thêm tài khoản</button>
           </div>
         </div>
-        <p class="mo">Mỗi tài khoản đăng nhập riêng một lần, app nhớ phiên. Tài khoản đang bật sẽ cùng chạy, mỗi tài khoản <b id="soLuongTK">3</b> luồng.</p>
+        <p class="mo">Mỗi tài khoản đăng nhập riêng một lần, app nhớ phiên. Mỗi dự án chọn một tài khoản <b>chính</b> (chạy <b id="soLuongTK">3</b> luồng) và các tài khoản <b>dự phòng</b> — bấm nút tài khoản cạnh tên dự án. Việc lỗi hoặc quá lâu ở tài khoản chính thì chuyển ngay sang dự phòng.</p>
         <div class="cuon" id="dsTaiKhoan"></div>
       </section>
       <section class="panel cot-trinh-duyet">
@@ -262,7 +264,8 @@
           <li><b>Video từ ảnh có sẵn:</b> trang Tạo video → <i>Tạo video từ thư mục ảnh</i> → chọn thư mục; gõ prompt vào ô <i>Prompt dùng chung</i> rồi Tạo &amp; chạy — mỗi ảnh một video. Đặt tên video <code>{tenAnh}</code> để video trùng tên ảnh.</li>
           <li><b>Ảnh và video chạy song song:</b> khi bật <i>Ảnh xong → tự tạo video</i>, ảnh nào xong là video của nó được chạy ngay ở luồng rảnh kế tiếp, không chờ hết mẻ ảnh.</li>
           <li><b>Việc lỗi:</b> hết hàng chờ mà còn việc lỗi, tool tự chạy lại chúng (mặc định tối đa 2 lượt — đổi ở Cài đặt).</li>
-          <li><b>Nhiều luồng hơn:</b> tăng <i>Số luồng mỗi tài khoản</i> (Cài đặt nâng cao), không cần tạo thêm dự án. Muốn nhiều hơn nữa thì thêm tài khoản — mọi tài khoản đang bật chạy cùng lúc.</li>
+          <li><b>Nhiều luồng hơn:</b> tăng <i>Số luồng mỗi tài khoản</i> (Cài đặt nâng cao), không cần tạo thêm dự án. Tài khoản khác của dự án là dự phòng: chỉ chạy khi tài khoản chính lỗi.</li>
+          <li><b>Tài khoản chính + dự phòng:</b> bấm nút tài khoản cạnh tên dự án (hoặc khi tạo dự án mới) để chọn. Việc nào lỗi hoặc quá lâu (ảnh quá 3 phút, video quá 5 phút — chỉnh ở Cài đặt) thì chạy lại NGAY ở tài khoản dự phòng kế tiếp; tài khoản chính lỗi 2 việc liền (hoặc Muse "Connecting...") thì nghỉ 15 phút, cả dự án sang dự phòng. Bấm <i>Chạy tất cả</i> lại là cho mọi tài khoản cơ hội mới.</li>
           <li><b>Kết quả</b>: thư mục lưu, công tắc tải về và mẫu tên file nằm trong <i>Cài đặt nâng cao</i> của từng trang Tạo ảnh / Tạo video (mặc định <code>Mac_dinh/Mac_dinh_001.png</code>).</li>
           <li><b>Nhiều file .txt:</b> bấm <i>Nhập nhiều file .txt</i>, chọn cả loạt — mỗi file thành một dự án mang tên file, dùng chung tuỳ chọn đang chọn ở cột Tạo, rồi tự chạy.</li>
           <li><b>Dừng giữa chừng</b> không mất lượt: chạy lại, tool mở lại đúng chat cũ để lấy kết quả chứ không gửi lại prompt.</li>
@@ -286,8 +289,8 @@
             <label>Nghỉ giữa 2 lần gửi (giây, mỗi tài khoản)<input type="number" id="cdNghi" min="0" max="120"></label>
             <label>Tự thử lại ngay khi lỗi (lần)<input type="number" id="cdThuLai" min="0" max="5"></label>
             <label>Hết lượt → tự chạy lại việc lỗi (số lượt)<input type="number" id="cdChayLaiLoi" min="0" max="10"></label>
-            <label>Chờ tối đa 1 ảnh (giây)<input type="number" id="cdChoAnh" min="60" max="1800"></label>
-            <label>Chờ tối đa 1 video (giây)<input type="number" id="cdChoVideo" min="120" max="3600"></label>
+            <label>Chờ tối đa 1 ảnh (giây) — quá thì chuyển tài khoản dự phòng<input type="number" id="cdChoAnh" min="60" max="1800"></label>
+            <label>Chờ tối đa 1 video (giây) — quá thì chuyển tài khoản dự phòng<input type="number" id="cdChoVideo" min="120" max="3600"></label>
             <label>Muse trả chữ bao lâu thì coi là lỗi (giây)<input type="number" id="cdChoChu" min="15" max="600"></label>
           </div>
           <div class="dong-cong-tac"><div><b>Lưu ảnh dạng PNG</b><small>Muse trả webp; bật để đổi sang png (nặng hơn, dễ dùng hơn).</small></div><label class="cong-tac"><input type="checkbox" id="cdPng"><span></span></label></div>

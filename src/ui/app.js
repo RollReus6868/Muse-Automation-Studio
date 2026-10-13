@@ -60,6 +60,22 @@
     clearTimeout(henToast); henToast = setTimeout(() => { t.hidden = true; }, 3200);
   }
   const duAnHienTai = () => (S && (S.duAn.find((d) => d.id === U.duAn) || S.duAn[0])) || null;
+  /** Tài khoản chạy dự án theo thứ tự [chính, dự phòng…]; chưa chọn = mọi tài khoản (giống điều phối). */
+  const tkCuaDuAn = (d) => {
+    const co = (id) => S.taiKhoan.some((a) => a.id === id);
+    const ds = d && d.taiKhoan && d.taiKhoan.length ? d.taiKhoan.filter(co) : [];
+    return ds.length ? ds : S.taiKhoan.map((a) => a.id);
+  };
+  const tenTk = (id) => (S.taiKhoan.find((a) => a.id === id) || { ten: id }).ten;
+  /** Ô chọn tài khoản trong hộp thoại: một tài khoản CHÍNH + các tài khoản DỰ PHÒNG. */
+  function htmlChonTk(ds) {
+    const chinh = ds[0];
+    return `<label>Tài khoản chính (chạy mọi việc)<select name="tkChinh">${S.taiKhoan.map((a) =>
+      `<option value="${esc(a.id)}" ${a.id === chinh ? 'selected' : ''}>${esc(a.ten)}${a.trangThai === 'can-dang-nhap' ? ' (chưa đăng nhập)' : ''}</option>`).join('')}</select></label>
+      <div class="chon-tk"><span>Dự phòng — việc lỗi hoặc quá lâu ở tài khoản chính thì chuyển ngay sang (theo thứ tự):</span>
+      ${S.taiKhoan.map((a) => `<label class="hang-tk" data-du="${esc(a.id)}" ${a.id === chinh ? 'hidden' : ''}><input type="checkbox" name="du_${esc(a.id)}" ${ds.slice(1).includes(a.id) ? 'checked' : ''}>${esc(a.ten)}</label>`).join('')}</div>`;
+  }
+  const layTk = (v) => [v.tkChinh, ...S.taiKhoan.map((a) => a.id).filter((id) => id !== v.tkChinh && v['du_' + id])];
   const viecTheoId = (id) => S && S.viec.find((j) => j.id === id);
 
   // ── Hộp thoại (Electron không có window.prompt) ───────────────────────────
@@ -140,6 +156,9 @@
     if (d && U.duAn !== d.id) U.duAn = d.id;
     const soViec = S.viec.filter((j) => j.duAn === (d && d.id) && j.loai === loaiTrang()).length;
     $('#tenDuAn').textContent = d ? `${d.ten} - ${soViec}` : '—';
+    const tkd = d ? tkCuaDuAn(d) : [];
+    $('#chuTkDuAn').textContent = tkd.length ? `${tenTk(tkd[0])}${tkd.length > 1 ? ` +${tkd.length - 1} dự phòng` : ''}` : 'Chưa có tài khoản';
+    $('#nutTkDuAn').title = tkd.length ? `Chính: ${tenTk(tkd[0])}${tkd.length > 1 ? ` · dự phòng: ${tkd.slice(1).map(tenTk).join(', ')}` : ''} — bấm để đổi` : '';
     const dangChay = S.viec.filter((j) => j.trangThai === 'chay').length;
     const chip = $('#chipChay');
     chip.classList.toggle('chay', S.dangChay);
@@ -469,8 +488,10 @@
     const chung = await thamSoTao([], false);
     if (!chung) return;
     let dau = null, soViec = 0;
+    const dh = duAnHienTai();   // dự án mới chạy trên đúng tài khoản đã chọn cho dự án đang mở (chưa chọn thì thôi)
+    const tkMoi = dh && dh.taiKhoan && dh.taiKhoan.length ? dh.taiKhoan : undefined;
     for (const f of dung) {
-      const d = await api.call('taoDuAn', { ten: f.ten });
+      const d = await api.call('taoDuAn', { ten: f.ten, taiKhoan: tkMoi });
       if (!d || !d.id) continue;
       dau = dau || d.id;
       const theoDong = TC().thuMuc ? f.prompts.map((_, i) => (TC().thuMuc.anh[i] ? [TC().thuMuc.anh[i]] : [])) : null;
@@ -562,7 +583,6 @@
             <button class="nut-vien nho" data-tk="dangXuat" data-id="${esc(a.id)}" title="Đăng xuất">${ic('log-out')}</button>
             <button class="nut-vien nho do" data-tk="xoa" data-id="${esc(a.id)}" title="Xoá">${ic('trash-2')}</button>
           </div></div>
-        <label class="cong-tac" title="Dùng tài khoản này khi chạy"><input type="checkbox" data-tk-bat="${esc(a.id)}" ${a.bat ? 'checked' : ''}><span></span></label>
       </div>`;
     }).join(''));
     const tk = S.dangNhap && S.taiKhoan.find((a) => a.id === S.dangNhap.id);
@@ -676,10 +696,18 @@
     }).join('') + `<div class="tach"></div><button data-du-an-moi>${ic('plus')}Dự án mới…</button>`;
   }
   async function duAnMoi() {
-    const v = await hoi({ tieuDe: 'Dự án mới', html: '<label>Tên dự án (cũng là tên thư mục kết quả)<input name="ten" placeholder="vd: Truyện người que"></label>', ok: 'Tạo' });
+    const v = await hoi({ tieuDe: 'Dự án mới', html: '<label>Tên dự án (cũng là tên thư mục kết quả)<input name="ten" placeholder="vd: Truyện người que"></label>' +
+      htmlChonTk(tkCuaDuAn(duAnHienTai())), ok: 'Tạo' });
     if (!v || !v.ten.trim()) return;
-    const d = await api.call('taoDuAn', { ten: v.ten });
+    const d = await api.call('taoDuAn', { ten: v.ten, taiKhoan: layTk(v) });
     if (d && d.id) { U.duAn = d.id; U.chiTiet = null; U.chon.clear(); luuUi(); }
+  }
+
+  async function chonTkDuAn() {
+    const d = duAnHienTai();
+    if (!d) return;
+    const v = await hoi({ tieuDe: `Tài khoản chạy "${d.ten}"`, html: htmlChonTk(tkCuaDuAn(d)), ok: 'Lưu' });
+    if (v) { await api.call('datTaiKhoanDuAn', { id: d.id, taiKhoan: layTk(v) }); toast('Đã lưu tài khoản của dự án'); }
   }
 
   // ── Gắn sự kiện ──────────────────────────────────────────────────────────
@@ -707,6 +735,12 @@
       else { U.duAn = b.dataset.duAn; U.chiTiet = null; U.chon.clear(); luuUi(); ve(); }
     };
     $('#nutThemDuAn').onclick = duAnMoi;
+    $('#nutTkDuAn').onclick = chonTkDuAn;
+    // Hộp chọn tài khoản: tài khoản đang là CHÍNH thì không hiện trong danh sách dự phòng.
+    $('#hopNoiDung').addEventListener('change', (e) => {
+      if (e.target.name !== 'tkChinh') return;
+      for (const l of $$('#hopNoiDung [data-du]')) l.hidden = l.dataset.du === e.target.value;
+    });
     $('#nutMoThuMucDuAn').onclick = () => api.call('moThuMuc', { dir: S.thuMuc[loaiTrang()] });
     $('#nutNhapPrompt').onclick = async () => {
       const t = await api.call('nhapPrompt');
@@ -723,7 +757,8 @@
       if (!b) return;
       dongMenu();
       const d = duAnHienTai();
-      if (b.dataset.lenh === 'doiTen') {
+      if (b.dataset.lenh === 'taiKhoan') chonTkDuAn();
+      else if (b.dataset.lenh === 'doiTen') {
         const v = await hoi({ tieuDe: 'Đổi tên dự án', html: `<label>Tên<input name="ten" value="${esc(d.ten)}"></label><small>Kết quả mới sẽ lưu vào thư mục theo tên mới; file cũ giữ nguyên chỗ cũ.</small>`, ok: 'Lưu' });
         if (v && v.ten.trim()) api.call('doiTenDuAn', { id: d.id, ten: v.ten });
       } else if (b.dataset.lenh === 'xoaXong') {
@@ -911,10 +946,6 @@
       if (a && a.id && await xacNhan('Đăng nhập luôn?', `Mở muse.ai để đăng nhập "${esc(a.ten)}"?`, 'Đăng nhập')) lenhTaiKhoan('dangNhap', a.id);
     };
     $('#dsTaiKhoan').addEventListener('click', (e) => { const b = e.target.closest('[data-tk]'); if (b) lenhTaiKhoan(b.dataset.tk, b.dataset.id); });
-    $('#dsTaiKhoan').addEventListener('change', (e) => {
-      const c = e.target.closest('[data-tk-bat]');
-      if (c) api.call('suaTaiKhoan', { id: c.dataset.tkBat, thay: { bat: c.checked } });
-    });
     $('#nutXongDangNhap').onclick = () => dongDangNhap();
     const baoKhung = () => { if (U.dangNhapMo && U.trang === 'taikhoan') api.call('khungDangNhap', { khung: khungTrinhDuyet() }); };
     new ResizeObserver(baoKhung).observe($('#oTrinhDuyet'));

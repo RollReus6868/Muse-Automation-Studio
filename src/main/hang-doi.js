@@ -190,6 +190,22 @@ function laTraLoiChu(kq, giayTuKhiCoChu, choToiDa) {
   return !!kq.chu && !kq.dangGo && !kq.soKhungAnh && !kq.soKhungVideo && giayTuKhiCoChu >= choToiDa;
 }
 
+/**
+ * Tài khoản nên chạy việc này. Mỗi dự án có danh sách tài khoản theo thứ tự ưu tiên: đầu = tài khoản
+ * CHÍNH, sau = DỰ PHÒNG (chỉ dùng khi tài khoản trước lỗi).
+ *  1. Chat dở (đã gửi) của một tài khoản còn dùng được → lấy tiếp ở đúng tài khoản đó.
+ *  2. Tài khoản đầu tiên việc này CHƯA lỗi (j.tkLoi) và không đang tạm nghỉ.
+ *  3. Đã lỗi ở mọi tài khoản nhưng còn lượt thử → tài khoản đầu tiên không tạm nghỉ.
+ * @param dsTk  [id…] đã lọc tài khoản dùng được, theo thứ tự ưu tiên
+ * @param nghi  (id) → true nếu tài khoản đang tạm nghỉ (lỗi liên tiếp / Muse mất kết nối)
+ * @returns id hoặc null (không còn tài khoản nào chạy được)
+ */
+function taiKhoanChoViec(j, dsTk, nghi) {
+  const duoc = dsTk.filter((id) => !(nghi && nghi(id)));
+  if (j.thread && j.taiKhoan && duoc.includes(j.taiKhoan)) return j.taiKhoan;
+  return duoc.find((id) => !(j.tkLoi || []).includes(id)) || duoc[0] || null;
+}
+
 /** Thứ tự tự nhiên: anh2 < anh10. */
 function soSanhTuNhien(a, b) {
   return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
@@ -197,7 +213,7 @@ function soSanhTuNhien(a, b) {
 
 const HD = {
   TY_LE, MAU_MAC_DINH, MAU_TEN_MAC_DINH, PROMPT_VIDEO_MAC_DINH, slugTen, tachPrompt, timNhanVat, taoTinNhan, tenFile, chonKhoang,
-  viecKeTiep, thoiGianDuKien, tienDoUoc, daXong, laTraLoiChu, soSanhTuNhien
+  viecKeTiep, taiKhoanChoViec, thoiGianDuKien, tienDoUoc, daXong, laTraLoiChu, soSanhTuNhien
 };
 // Dùng chung cho tiến trình chính (require) và giao diện (<script> → window.HD).
 if (typeof module !== 'undefined' && module.exports) module.exports = HD;

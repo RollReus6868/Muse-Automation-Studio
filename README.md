@@ -1,13 +1,13 @@
 # Muse Automation Studio
 
-App desktop (Windows / macOS) tự động tạo **ảnh và video hàng loạt trên muse.ai**: dán nhiều prompt, chạy nhiều luồng song song trên nhiều tài khoản, tự tải kết quả về thư mục. Cách làm việc giống Flow Automation Studio, giao diện theo kiểu Meosu.
+App desktop (Windows / macOS) tự động tạo **ảnh và video hàng loạt trên muse.ai**: dán nhiều prompt, chạy nhiều luồng song song, tài khoản chính + dự phòng (lỗi là chuyển tài khoản ngay), tự tải kết quả về thư mục. Cách làm việc giống Flow Automation Studio, giao diện theo kiểu Meosu.
 
 ## Dùng nhanh
 
 1. **Chạy app**
    - Bản cài: tải `MuseAutomationStudio-<phiên bản>-setup.exe` ở trang *Releases* của repo. Windows báo SmartScreen thì bấm *More info → Run anyway* (app chưa ký số).
    - Từ mã nguồn: bấm đúp `CHAY_TU_NGUON.bat`. Lần đầu nó cài Node.js và thư viện, mất 3–10 phút.
-2. **Tài khoản** → *Đăng nhập* → đăng nhập muse.ai trong khung bên phải → *Xong, đóng lại*. Muốn chạy nhiều tài khoản thì *Thêm tài khoản* rồi đăng nhập từng tài khoản.
+2. **Tài khoản** → *Đăng nhập* → đăng nhập muse.ai trong khung bên phải → *Xong, đóng lại*. Muốn có tài khoản dự phòng thì *Thêm tài khoản* rồi đăng nhập từng tài khoản; mỗi dự án chọn tài khoản chính + dự phòng ở nút tài khoản cạnh tên dự án.
 3. **Tạo ảnh / Tạo video** → dán prompt (mỗi dòng một prompt) → chọn tỷ lệ → **Tạo & chạy**.
 
 Kết quả mặc định lưu ở `Tài liệu/Muse Automation Studio/<Dự_án>/<Dự_án>_001.png`; thư mục và tên file của ảnh, video đổi riêng được trong *Cài đặt nâng cao* của trang Tạo ảnh / Tạo video.
@@ -16,8 +16,9 @@ Kết quả mặc định lưu ở `Tài liệu/Muse Automation Studio/<Dự_án
 
 | | |
 |---|---|
-| Nhiều luồng | Mỗi tài khoản N luồng (mặc định 3, tối đa 20 — chỉnh ở Cài đặt nâng cao trong cột Tạo), các tài khoản đang bật chạy cùng lúc |
+| Nhiều luồng | Tài khoản chính của dự án chạy N luồng (mặc định 3, tối đa 20 — chỉnh ở Cài đặt nâng cao trong cột Tạo) |
 | Nhiều tài khoản | Mỗi tài khoản một phiên đăng nhập riêng, không đá nhau ra |
+| Tài khoản chính + dự phòng | Mỗi dự án chọn 1 tài khoản chính và các tài khoản dự phòng. Việc lỗi hoặc quá lâu (ảnh > 3 phút, video > 5 phút) chạy lại NGAY ở dự phòng kế tiếp; chính lỗi 2 việc liền hoặc Muse "Connecting..." → nghỉ 15 phút, cả dự án sang dự phòng |
 | Mức token | Thẻ tài khoản hiện mức dùng token của Muse (gói tuần, token bổ sung còn lại); tự cập nhật khi chạy hết hàng chờ, nút *Cập nhật token* |
 | Đặt lại hàng đợi | Nút *Đặt lại*: mọi việc của dự án đang xem về *Chờ* như lúc mới thêm |
 | Xoá chat Muse | Thẻ tài khoản → *Xoá chat* (xoá mọi chat phụ trên muse.ai); hàng đợi → chọn việc → *Xoá chat Muse* (chỉ chat của các việc đó) |
@@ -71,6 +72,13 @@ Biến môi trường cho kiểm thử: `MUSE_URL` (địa chỉ Muse giả), `M
 Phát hành: tăng `version` trong `package.json`, ghi `GHI_CHU_BAN_MOI.md` (nhắc số phiên bản), push, rồi *Actions → Phat hanh ban moi → Run workflow*. Repo phải để **public** thì app mới tự cập nhật được.
 
 ## Lịch sử
+
+### 1.6.0 (13/10/2026) — tài khoản chính + dự phòng theo dự án
+- Người dùng muốn: mỗi dự án chọn chạy trên tài khoản nào; chạy ở A, không lỗi thì giữ A, lỗi (kể cả lâu hơn bình thường) thì đổi NGAY sang B/C. Đã hỏi lại: chọn "một tài khoản chính, còn lại dự phòng" (không chạy song song mọi tài khoản).
+- `duAn.taiKhoan = [chính, dự phòng…]` (chưa chọn = mọi tài khoản theo thứ tự danh sách). `hd.taiKhoanChoViec(j, dsTk, nghi)`: chat dở → đúng tài khoản; không thì tài khoản đầu tiên việc này chưa lỗi (`j.tkLoi`) và không đang nghỉ. `_vong` gán mỗi việc chờ đúng một tài khoản; chỉ mở luồng cho tài khoản đang cần (dự phòng không mở cửa sổ, không đụng token khi chính chạy tốt).
+- Lỗi bất kỳ → `j.tkLoi += tk`, chuyển ngay sang tài khoản kế tiếp (số lần thử = max(Tự thử lại, số tài khoản − 1)); một tài khoản thì thử lại như cũ. Tài khoản lỗi 2 việc liền (chỉ khi có dự phòng) hoặc Muse "Connecting..." → nghỉ 15 phút. Không còn tài khoản nào → tạm dừng hàng chờ, nhật ký nói lý do từng tài khoản. Bấm *Chạy tất cả* lại = xoá tạm nghỉ.
+- "Lâu hơn bình thường": chờ tối đa mặc định ảnh 240 → 180 s, video 600 → 300 s (bình thường ~35 / ~80 s); giá trị mặc định cũ đã lưu tự đổi một lần (`caiDat.moc`).
+- Bỏ công tắc bật/tắt trên thẻ tài khoản (thay bằng chọn tài khoản theo dự án). Nút tài khoản cạnh tên dự án, mục "Tài khoản chạy dự án…" trong menu ⋮, ô chọn trong hộp "Dự án mới"; "Nhập nhiều file .txt" kế thừa tài khoản đã chọn của dự án đang mở.
 
 ### 1.5.0 (12/10/2026) — Muse "Connecting...", xoá đoạn chat
 - Người dùng: mọi việc "Quá 600 giây chưa thấy kết quả", muse.ai hiện "Video not found". Đo trên trang thật: Muse kẹt **Connecting...** (chữ trạng thái dưới avatar, `[data-pel-impression=status_limit_reached_impression] [title]`; bình thường "Connected") — mất kết nối tới máy ảo của tài khoản (WebSocket `hatch.metaaivm.com`), chat không nạp (`chat-empty-loading`), media không tải. Không phải do tool (tắt tool vẫn kẹt), tự hết sau ~40 phút. Trong lúc đó Muse vẫn nhận prompt nhưng đường dẫn ở lại `/thread/new` → tool lưu "/thread/new" làm chat, lần thử lại mở chat trống, chờ suông thêm 600 s.
